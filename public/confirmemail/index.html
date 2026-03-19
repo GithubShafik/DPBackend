@@ -1,0 +1,105 @@
+<html>
+
+<head>
+    <link href="https://fonts.googleapis.com/css?family=Nunito+Sans:400,400i,700,900&display=swap" rel="stylesheet">
+</head>
+<style>
+    body {
+        text-align: center;
+        padding: 40px 0;
+        background: #EBF0F5;
+    }
+
+    h1 {
+        color: #88B04B;
+        font-family: "Nunito Sans", "Helvetica Neue", sans-serif;
+        font-weight: 900;
+        font-size: 40px;
+        margin-bottom: 10px;
+    }
+
+    p {
+        color: #404F5E;
+        font-family: "Nunito Sans", "Helvetica Neue", sans-serif;
+        font-size: 20px;
+        margin: 0;
+    }
+
+    i {
+        color: #9ABC66;
+        font-size: 100px;
+        line-height: 200px;
+        margin-left: -15px;
+    }
+
+    .card {
+        background: white;
+        padding: 60px;
+        border-radius: 4px;
+        box-shadow: 0 2px 3px #C8D0D8;
+        display: inline-block;
+        margin: 0 auto;
+    }
+</style>
+
+<body>
+    <div class="card">
+        <div style="border-radius:200px; height:200px; width:200px; background: #F8FAF5; margin:0 auto;">
+            <i class="checkmark">✓</i>
+        </div>
+        <h1>Success</h1>
+        <p>Your Email Verified SuccessFully</p>
+    </div>
+    <script>
+        function getBaseUrl() {
+        var currentUrl = window.location.href;
+        var index = currentUrl.indexOf('/', currentUrl.indexOf('://') + 3);
+        var baseUrl = index !== -1 ? currentUrl.substring(0, index) : currentUrl;
+        return baseUrl;
+    }
+
+    function getQueryParam(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+    }
+
+    function confirmEmail() {
+        let token = getQueryParam('token');
+        let id = getQueryParam('id');
+
+        if (!token) {
+            console.error('Bearer token not found in the URL.');
+            return;
+        }
+
+        if (!id) {
+            console.error('ID not found in the URL.');
+            return;
+        }
+
+        var baseUrl = getBaseUrl();
+        let apiUrl = baseUrl + "/api/user/confirmemail?id=" + id + "&token=" + token;
+
+        fetch(apiUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Handle the response data
+                console.log('Email confirm:', data);
+            })
+            .catch(error => {
+                // Handle errors
+                console.error('Error:', error);
+            });
+    }
+
+    // Call confirmEmail on page load
+    window.onload = confirmEmail;
+    </script>
+</body>
+
+</html>
