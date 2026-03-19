@@ -8,7 +8,7 @@ import errorHandler from './utils/ErrorHandler/errorhandler.js';
 import { connectDB } from "./config/MySqldbconfig.js";
 // import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 // import { Strategy as FacebookStrategy } from "passport-facebook";
-import swaggerJsDoc  from "swagger-jsdoc";
+import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import passport from "passport";
 const app = express();
@@ -90,7 +90,31 @@ const swaggerOptions = {
 
 // Initialize Swagger
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
-app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+// app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+app.get("/swagger", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Swagger UI</title>
+        <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
+      </head>
+      <body>
+        <div id="swagger-ui"></div>
+        <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+        <script>
+          SwaggerUIBundle({
+  url: window.location.origin + '/swagger.json',
+  dom_id: '#swagger-ui'
+});
+        </script>
+      </body>
+    </html>
+  `);
+});
+
+app.get("/swagger.json", (req, res) => {
+  res.json(swaggerDocs);
+});
 
 
 app.use(passport.initialize());
@@ -158,7 +182,8 @@ app.use(errorHandler);
 connectDB();
 
 // Start server on all interfaces (0.0.0.0) for Docker
-app.listen(port, '0.0.0.0', () => {
-  console.log(`Auth Server listening at http://localhost:${port}`);
-});
+// app.listen(port, '0.0.0.0', () => {
+//   console.log(`Auth Server listening at http://localhost:${port}`);
+// });
 
+export default app;
