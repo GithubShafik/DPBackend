@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Create Password</title>
+</head>
+
+<body>
+    <div class="container">
+        <form>
+            <label for="password">Password</label>
+            <input type="password" id="password" placeholder="Your password here">
+            <label for="cnfrm-password">Confirm Password</label>
+            <input type="password" id="cnfrm-password" placeholder="Confirm your password here">
+            <p id="errormessage" style="color:red"></p>
+            <input type="button" onclick="validatePassword()" value="Reset Password" />
+        </form>
+    </div>
+
+    <script>
+        function validatePassword() {
+            let password = document.getElementById("password").value;
+            let cnfrmPassword = document.getElementById("cnfrm-password").value;
+            let message = document.getElementById("errormessage");
+
+            let minLength = 8;
+            let hasUpperCase = /[A-Z]/.test(password);
+            let hasLowerCase = /[a-z]/.test(password);
+            let hasDigit = /\d/.test(password);
+            let hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+            // Check if password meets criteria
+            if (password.length < minLength) {
+                message.innerHTML = "Password should be at least " + minLength + " characters long.";
+            } else if (!hasUpperCase || !hasLowerCase || !hasDigit || !hasSpecialChar) {
+                message.innerHTML = "Password should include at least one uppercase letter, one lowercase letter, one digit, and one special character.";
+            } else if (password !== cnfrmPassword) {
+                message.innerHTML = "Passwords do not match.";
+            } else {
+                // Password is strong
+                handleSubmit(password, cnfrmPassword)
+            }
+        }
+
+        function handleSubmit(password, cnfrmPassword) {
+            function getQueryParam(name) {
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get(name);
+            }
+
+            let token = getQueryParam('token'); // Assuming 'token' is the name of your query parameter
+
+            // Check if token is present
+            if (!token) {
+                console.error('Bearer token not found in the URL.');
+                return;
+            }
+            let requestBody = {
+                new_password: password,
+                confirm_password: cnfrmPassword
+            };
+
+            function getBaseUrl() {
+                // Get the current URL
+                var currentUrl = window.location.href;
+
+                // Find the index of the first "/" after "http://" or "https://"
+                var index = currentUrl.indexOf('/', currentUrl.indexOf('://') + 3);
+
+                // Extract the base URL
+                var baseUrl = index !== -1 ? currentUrl.substring(0, index) : currentUrl;
+
+                return baseUrl;
+            }
+
+            // Example usage:
+            var baseUr = getBaseUrl();
+            let apiUrl = baseUr + "/api/v1/user/resetpassword"; // Replace with your actual API endpoint URL
+
+            // Make the POST request
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(requestBody)
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok: ' + response.statusText);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Handle the response data
+                    window.location.href = baseUr + "/success";
+                    console.log('Change password response:', data);
+                })
+                .catch(error => {
+                    // Handle errors
+                    console.error('Error:', error);
+                });
+        }
+    </script>
+</body>
+
+</html>
