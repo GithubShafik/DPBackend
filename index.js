@@ -11,6 +11,12 @@ import { connectDB } from "./config/MySqldbconfig.js";
 import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import passport from "passport";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 // import { createBullBoard } from "@bull-board/api";
 // import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
@@ -85,7 +91,10 @@ const swaggerOptions = {
       },
     ],
   },
-  apis: ["./routes/*.js"],
+  apis: [
+    path.join(__dirname, "routes/userRoutes.js"),
+    path.join(__dirname, "routes/deliveryPartnerRoutes.js")
+  ],
 };
 
 // Initialize Swagger
