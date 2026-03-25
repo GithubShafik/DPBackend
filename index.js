@@ -188,17 +188,23 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 // Connect to database
-connectDB();
+// connectDB();
 
 // Start server on all interfaces (0.0.0.0) for Docker
 // app.listen(port, '0.0.0.0', () => {
 //   console.log(`Auth Server listening at http://localhost:${port}`);
 // });
 
-if (process.env.NODE_ENV !== "production") {
-  app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-  });
-}
+// if (process.env.NODE_ENV !== "production") {
+//   app.listen(port, () => {
+//     console.log(`Server running on http://localhost:${port}`);
+//   });
+// }
+
+connectDB();
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Server running on port ${port}`);
+});
 
 export default app;
