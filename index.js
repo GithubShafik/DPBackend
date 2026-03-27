@@ -8,16 +8,40 @@ import errorHandler from './utils/ErrorHandler/errorhandler.js';
 import { connectDB } from "./config/MySqldbconfig.js";
 // import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 // import { Strategy as FacebookStrategy } from "passport-facebook";
-import swaggerJsDoc from "swagger-jsdoc";
+import swaggerJsDoc  from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import passport from "passport";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+import { createServer } from "http";
+import { Server } from "socket.io";
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Socket.IO logic
+const notifiedOrders = new Map(); // Track notified orders: { orderId: Set([dpId1, dpId2]) }
+
+io.on("connection", (socket) => {
+  console.log("🔌 A user connected:", socket.id);
+
+  socket.on("join", (data) => {
+    const { role, partnerId } = data;
+    if (role === 'partner' && partnerId) {
+      socket.join(`partner_${partnerId}`);
+      console.log(`✅ Partner joined: ID ${partnerId}, Socket ${socket.id}`);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    console.log("🔌 User disconnected:", socket.id);
+  });
+});
+
+
 // import { createBullBoard } from "@bull-board/api";
 // import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
@@ -46,6 +70,48 @@ app.use(
 );
 
 const serverAdapter = new ExpressAdapter();
+
+// --- Internal API Bridge for Cross-Backend Communication ---
+app.post("/api/internal/notify-partners", (req, res) => {
+    const { partnerIds, eventData } = req.body;
+    
+    if (!partnerIds || !Array.isArray(partnerIds) || !eventData) {
+        return res.status(400).json({ success: false, error: "Invalid payload: missing partnerIds or eventData" });
+    }
+    
+    let notifiedCount = 0;
+    partnerIds.forEach(id => {
+        const roomName = `partner_${id}`;
+        
+        // Check if this partner has already been notified for this order
+        if (!notifiedOrders.has(eventData.orderId)) {
+            notifiedOrders.set(eventData.orderId, new Set());
+        }
+        
+        const notifiedSet = notifiedOrders.get(eventData.orderId);
+        
+        if (!notifiedSet.has(id)) {
+            // Only send if not already notified
+            io.to(roomName).emit("new_order", eventData);
+            notifiedSet.add(id);
+            console.log(`[Internal API] 🔔 Emitted 'new_order' to room: ${roomName} for order: ${eventData.orderId}`);
+            notifiedCount++;
+        } else {
+            console.log(`[Internal API] ⏭️ Partner ${id} already notified for order ${eventData.orderId}`);
+        }
+    });
+    
+    // Clean up old orders after 1 hour to prevent memory leak
+    setTimeout(() => {
+        notifiedOrders.delete(eventData.orderId);
+    }, 3600000);
+    
+    res.status(200).json({ 
+        success: true, 
+        message: `Successfully emitted events to ${notifiedCount} partners` 
+    });
+});
+// -----------------------------------------------------------
 serverAdapter.setBasePath("/admin/queues");
 
 // createBullBoard({
@@ -91,10 +157,7 @@ const swaggerOptions = {
       },
     ],
   },
-  apis: [
-    path.join(__dirname, "routes/userRoutes.js"),
-    path.join(__dirname, "routes/deliveryPartnerRoutes.js")
-  ],
+  apis: ["./routes/*.js"],
 };
 
 // Initialize Swagger
@@ -191,14 +254,13 @@ app.use(errorHandler);
 connectDB();
 
 // Start server on all interfaces (0.0.0.0) for Docker
-// app.listen(port, '0.0.0.0', () => {
-//   console.log(`Auth Server listening at http://localhost:${port}`);
+// httpServer.listen(port, '0.0.0.0', () => {
+//   console.log(`Auth Server with Socket.IO listening at http://localhost:${port}`);
 // });
 
 if (process.env.NODE_ENV !== "production") {
-  app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
+  httpServer.listen(port, '0.0.0.0', () => {
+    console.log(`🚀 Server + Socket running on http://192.168.0.169:${port}`);
   });
 }
-
 export default app;
