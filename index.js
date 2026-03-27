@@ -251,7 +251,7 @@ app.use((req, res, next) => {
 app.use(errorHandler);
 
 // Connect to database
-connectDB();
+// connectDB();
 
 // Start server on all interfaces (0.0.0.0) for Docker
 // httpServer.listen(port, '0.0.0.0', () => {
