@@ -3,16 +3,16 @@ export const DeliveryPartnerDetails = (sequelize, DataTypes) => {
     "DeliveryPartnerDetails",
     {
       DPDID: {
-        type: DataTypes.CHAR(10),
+        type: DataTypes.CHAR(36),
         primaryKey: true,
         allowNull: false,
       },
       DPID: {
-        type: DataTypes.CHAR(10),
+        type: DataTypes.CHAR(36),
         allowNull: true,
       },
       APID: {
-        type: DataTypes.CHAR(10),
+        type: DataTypes.CHAR(36),
         allowNull: true,
       },
       DPAO: {

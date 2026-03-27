@@ -1,40 +1,40 @@
-export const DPLocation = (sequelize, DataTypes) => {
+export const OrdTripLeg = (sequelize, DataTypes) => {
   const model = sequelize.define(
-    "DPLocation",
+    "OrdTripLeg",
     {
-      DPID: {
+      OTLID: {
         type: DataTypes.CHAR(36),
         allowNull: false,
         primaryKey: true,
       },
-      DPOID: {
+      OTID: {
         type: DataTypes.CHAR(36),
         allowNull: true,
       },
-      DPTID: {
+      ORID: {
         type: DataTypes.CHAR(36),
         allowNull: true,
       },
-      DPSTA: {
-        type: DataTypes.BOOLEAN,
-        allowNull: true,
-      },
-      DPCLL: {
+      OTLLL: {
         type: DataTypes.STRING(100),
         allowNull: true,
       },
-      DPCDT: {
+      OTLDT: {
         type: DataTypes.DATE,
         allowNull: true,
       },
-      DPCSP: {
+      OTLSP: {
         type: DataTypes.DECIMAL(5, 2),
+        allowNull: true,
+      },
+      DPID: {
+        type: DataTypes.CHAR(36),
         allowNull: true,
       },
     },
     {
       timestamps: false,
-      tableName: "DPLocation",
+      tableName: "OrdTripLeg",
     }
   );
 

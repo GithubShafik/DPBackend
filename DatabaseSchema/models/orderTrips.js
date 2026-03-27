@@ -1,122 +1,92 @@
-export const DeliveryPartner = (sequelize, DataTypes) => {
+export const OrderTrips = (sequelize, DataTypes) => {
   const model = sequelize.define(
-    "DeliveryPartner",
+    "OrderTrips",
     {
-      DPID: {
+      OTID: {
         type: DataTypes.CHAR(36),
-        primaryKey: true,
         allowNull: false,
+        primaryKey: true,
       },
-
-      DPFN: {
-        type: DataTypes.STRING(25),
+      ORID: {
+        type: DataTypes.CHAR(36),
         allowNull: true,
       },
-
-      DPMN: {
-        type: DataTypes.STRING(25),
-        allowNull: true,
-      },
-
-      DPLN: {
-        type: DataTypes.STRING(25),
-        allowNull: true,
-      },
-
-      DPDN: {
+      OTSA1: {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
-
-      DPTL: {
-        type: DataTypes.TINYINT,
-        allowNull: true,
-      },
-
-      DPADL1: {
+      OTSA2: {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
-
-      DPADL2: {
+      OTSA3: {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
-
-      DPADLM: {
+      OTSC: {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
-
-      DPADCT: {
-        type: DataTypes.STRING(50),
-        allowNull: true,
-      },
-
-      DPADST: {
-        type: DataTypes.STRING(50),
-        allowNull: true,
-      },
-
-      DPADC: {
-        type: DataTypes.STRING(50),
-        allowNull: true,
-      },
-
-      DPADZ: {
+      OTSZ: {
         type: DataTypes.CHAR(10),
         allowNull: true,
       },
-
-      DPSTAT: {
-        type: DataTypes.TINYINT,
-        allowNull: true,
-      },
-
-      DPDOB: {
-        type: DataTypes.DATE,
-        allowNull: true,
-      },
-
-      DPANN: {
-        type: DataTypes.DATE,
-        allowNull: true,
-      },
-
-      DPSPOU: {
+      OTSS: {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
-
-      DPCHIL1: {
+      OTSCO: {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
-
-      DPCHIL2: {
+      OTSLL: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+      },
+      OTDA1: {
         type: DataTypes.STRING(50),
         allowNull: true,
       },
-
-      DPSPIN: {
-        type: DataTypes.STRING(150),
+      OTDA2: {
+        type: DataTypes.STRING(50),
         allowNull: true,
       },
-
-      DPRMN: {
+      OTDA3: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      OTDC: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      OTDZ: {
         type: DataTypes.CHAR(10),
         allowNull: true,
       },
-
-      DPRNC: {
-        type: DataTypes.CHAR(3),
+      OTDS: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      OTDCO: {
+        type: DataTypes.STRING(50),
+        allowNull: true,
+      },
+      OTDLL: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+      },
+      OTSD: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
+      OTDD: {
+        type: DataTypes.DATE,
         allowNull: true,
       },
     },
     {
-      tableName: "DeliveryPartner",
-      freezeTableName: true,
       timestamps: false,
+      tableName: "OrderTrips",
     }
   );
 

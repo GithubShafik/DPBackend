@@ -77,4 +77,50 @@ const router = express.Router();
  */
 router.post("/saveAndUpdatDPLocation" , checkUserAuth ,UserController.saveAndUpdatDPLocation)
 
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/acceptOrder:
+ *   post:
+ *     summary: Accept an order
+ *     tags: [Delivery Partner]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - dpId
+ *             properties:
+ *               orderId: { type: string }
+ *               dpId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Order accepted
+ */
+router.post("/acceptOrder", checkUserAuth, UserController.acceptOrder);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/orderDetails/{id}:
+ *   get:
+ *     summary: Get order details
+ *     tags: [Delivery Partner]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order details fetched
+ */
+router.get("/orderDetails/:id", checkUserAuth, UserController.getOrderDetails);
+
 export default router;

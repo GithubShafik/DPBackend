@@ -261,6 +261,46 @@ class UserController {
     });
   }
 };
+
+  static acceptOrder = async (req, res) => {
+    try {
+      const response = await DPServices.handleAcceptOrder(req);
+      return sendResult({
+        resCode: 200,
+        res,
+        result: response,
+        message: "Order accepted successfully",
+      });
+    } catch (error) {
+      console.error("❌ AcceptOrder Error:", error);
+      return sendError({
+        errorCode: 500,
+        res,
+        error: error?.message,
+        message: "Failed to accept order",
+      });
+    }
+  };
+
+  static getOrderDetails = async (req, res) => {
+    try {
+      const response = await DPServices.handleGetOrderDetails(req);
+      return sendResult({
+        resCode: 200,
+        res,
+        result: response,
+        message: "Order details fetched successfully",
+      });
+    } catch (error) {
+      console.error("❌ GetOrderDetails Error:", error);
+      return sendError({
+        errorCode: 500,
+        res,
+        error: error?.message,
+        message: "Failed to fetch order details",
+      });
+    }
+  };
 }
 
 export default UserController;
