@@ -258,9 +258,12 @@ connectDB();
 //   console.log(`Auth Server with Socket.IO listening at http://localhost:${port}`);
 // });
 
-if (process.env.NODE_ENV !== "production") {
-  httpServer.listen(port, '0.0.0.0', () => {
-    console.log(`🚀 Server + Socket running on http://192.168.0.169:${port}`);
-  });
-}
+httpServer.listen(port, '0.0.0.0', () => {
+  if (process.env.NODE_ENV === "production") {
+    console.log(`🚀 Server running on port ${port}`);
+  } else {
+    console.log(`🚀 Server running locally on http://192.168.0.169:${port}`);
+  }
+});
+
 export default app;
