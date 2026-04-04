@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const { sequelize, models } = db;
-const { _delivery_partner, _delivery_partner_details, _delivery_partner_location } = models;
+const { _delivery_partner, _delivery_partner_details, _delivery_partner_location ,  _pd_tnc  } = models;
 
 class DPServices {
   static async handleSaveOrUpdateDPLocation(req) {
@@ -224,6 +224,22 @@ class DPServices {
     }
   }
 
+  static async handleGetTermsAndConditions(req) {
+  try {
+    const { _pd_tnc } = models;
+
+    const data = await _pd_tnc.findOne();
+
+    if (!data) {
+      throw new Error("Terms & Conditions not found");
+    }
+
+    return data;
+  } catch (error) {
+    console.error("❌ handleGetTermsAndConditions Error:", error);
+    throw error;
+  }
+}
 }
 
 export default DPServices;

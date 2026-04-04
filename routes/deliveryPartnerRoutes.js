@@ -1,5 +1,6 @@
 import express from "express";
 import UserController from "../controllers/userController.js";
+import ReportController from "../controllers/reportController.js";
 import checkUserAuth from "../middlewares/auth-middleware.js";
 
 const router = express.Router();
@@ -122,5 +123,282 @@ router.post("/acceptOrder", checkUserAuth, UserController.acceptOrder);
  *         description: Order details fetched
  */
 router.get("/orderDetails/:id", checkUserAuth, UserController.getOrderDetails);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/reports/orderHistory:
+ *   get:
+ *     summary: Get order history for delivery partner
+ *     tags: [Delivery Partner Reports]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter orders from this date (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter orders until this date (YYYY-MM-DD)
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filter by order status (e.g., Delivered, Accepted, Pending)
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           default: ORDT
+ *         description: Column to sort by
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [ASC, DESC]
+ *           default: DESC
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: Order history fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   type: object
+ *                   properties:
+ *                     orders:
+ *                       type: array
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         total:
+ *                           type: integer
+ *                         page:
+ *                           type: integer
+ *                         limit:
+ *                           type: integer
+ *                         totalPages:
+ *                           type: integer
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         totalOrders:
+ *                           type: integer
+ *                         statusBreakdown:
+ *                           type: object
+ *                         totalEarnings:
+ *                           type: string
+ *                         completedOrders:
+ *                           type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal Server Error
+ */
+router.get("/reports/orderHistory", checkUserAuth, ReportController.getOrderHistory);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/reports/orderDetail/{orderId}:
+ *   get:
+ *     summary: Get detailed report for a specific order
+ *     tags: [Delivery Partner Reports]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Order ID
+ *     responses:
+ *       200:
+ *         description: Order detail report fetched successfully
+ *       403:
+ *         description: Unauthorized - Order does not belong to this partner
+ *       404:
+ *         description: Order not found
+ *       500:
+ *         description: Internal Server Error
+ */
+router.get("/reports/orderDetail/:orderId", checkUserAuth, ReportController.getOrderDetailReport);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/reports/earnings:
+ *   get:
+ *     summary: Get earnings report for delivery partner
+ *     tags: [Delivery Partner Reports]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: period
+ *         schema:
+ *           type: string
+ *           enum: [daily, weekly, monthly]
+ *           default: monthly
+ *         description: Period for earnings breakdown
+ *       - in: query
+ *         name: year
+ *         schema:
+ *           type: integer
+ *           default: 2026
+ *         description: Year for the report
+ *     responses:
+ *       200:
+ *         description: Earnings report fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   type: object
+ *                   properties:
+ *                     period:
+ *                       type: string
+ *                     year:
+ *                       type: integer
+ *                     breakdown:
+ *                       type: array
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         totalEarnings:
+ *                           type: string
+ *                         totalOrders:
+ *                           type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal Server Error
+ */
+router.get("/reports/earnings", checkUserAuth, ReportController.getEarningsReport);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/reports/summary:
+ *   get:
+ *     summary: Get order summary/stats for delivery partner dashboard
+ *     tags: [Delivery Partner Reports]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Order summary fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   type: object
+ *                   properties:
+ *                     totalOrders:
+ *                       type: integer
+ *                     statusBreakdown:
+ *                       type: object
+ *                     totalEarnings:
+ *                       type: string
+ *                     completedOrders:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal Server Error
+ */
+router.get("/reports/summary", checkUserAuth, ReportController.getOrderSummary);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/reports/export:
+ *   get:
+ *     summary: Export order history data (prepared for PDF generation)
+ *     tags: [Delivery Partner Reports]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter orders from this date (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter orders until this date (YYYY-MM-DD)
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *         description: Filter by order status
+ *     responses:
+ *       200:
+ *         description: Order history export data prepared successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   type: object
+ *                   properties:
+ *                     partner:
+ *                       type: object
+ *                     reportDate:
+ *                       type: string
+ *                     filterCriteria:
+ *                       type: object
+ *                     orders:
+ *                       type: array
+ *                     summary:
+ *                       type: object
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal Server Error
+ */
+router.get("/reports/export", checkUserAuth, ReportController.exportOrderHistory);
 
 export default router;

@@ -301,6 +301,26 @@ class UserController {
       });
     }
   };
+
+  static getTermsAndConditions = async (req, res) => {
+  try {
+    const response = await DPServices.handleGetTermsAndConditions(req);
+    return sendResult({
+      resCode: 200,
+      res,
+      result: response,
+      message: "Terms & Conditions fetched successfully",
+    });
+  } catch (error) {
+    console.error("❌ getTermsAndConditions Error:", error);
+    return sendError({
+      errorCode: 500,
+      res,
+      error: error?.message,
+      message: "Failed to fetch Terms & Conditions",
+    });
+  }
+};
 }
 
 export default UserController;

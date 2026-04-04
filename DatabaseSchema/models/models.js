@@ -5,12 +5,15 @@ import { Orders } from "./orders.js";
 import { OrderTrips } from "./orderTrips.js";
 import { OrdTripLeg } from "./ordTripLeg.js";
 import { Customers } from "./customers.js";
+import { PDTnC } from "./termsAndConditions.js";
+import { Attachments } from "./attachments.js";
 
 const models = (sequelize, DataTypes) => {
   const _delivery_partner = DeliveryPartner(sequelize, DataTypes);
   const _delivery_partner_details = DeliveryPartnerDetails(sequelize, DataTypes);
   const _delivery_partner_location = DPLocation(sequelize, DataTypes);
-
+  const _attachments = Attachments(sequelize, DataTypes);
+  const _pd_tnc = PDTnC(sequelize, DataTypes);
   const _orders = Orders(sequelize, DataTypes);
   const _order_trips = OrderTrips(sequelize, DataTypes);
   const _ord_trip_leg = OrdTripLeg(sequelize, DataTypes);
@@ -54,7 +57,7 @@ const models = (sequelize, DataTypes) => {
     targetKey: "CID",
     as: "customer",
   });
-  
+
   // Also support ORCD for backward compatibility
   _orders.belongsTo(_customers, {
     foreignKey: "ORCD",
@@ -114,6 +117,47 @@ const models = (sequelize, DataTypes) => {
     as: "deliveryPartner",
   });
 
+  /* ---------------- Attachments ---------------- */
+
+  // Orders -> Attachment
+  _orders.belongsTo(_attachments, {
+    foreignKey: "AttID",
+    targetKey: "AttID",
+    as: "attachment",
+  });
+
+  _attachments.hasMany(_orders, {
+    foreignKey: "AttID",
+    sourceKey: "AttID",
+    as: "orderAttachments",
+  });
+
+  // Delivery Partner -> Attachment
+  _delivery_partner.belongsTo(_attachments, {
+    foreignKey: "AttID",
+    targetKey: "AttID",
+    as: "attachment",
+  });
+
+  _attachments.hasMany(_delivery_partner, {
+    foreignKey: "AttID",
+    sourceKey: "AttID",
+    as: "deliveryPartnerAttachments",
+  });
+
+  // Delivery Partner Details -> Attachment
+  _delivery_partner_details.belongsTo(_attachments, {
+    foreignKey: "AttID",
+    targetKey: "AttID",
+    as: "attachment",
+  });
+
+  _attachments.hasMany(_delivery_partner_details, {
+    foreignKey: "AttID",
+    sourceKey: "AttID",
+    as: "deliveryPartnerDetailAttachments",
+  });
+
   return {
     _delivery_partner,
     _delivery_partner_details,
@@ -121,7 +165,9 @@ const models = (sequelize, DataTypes) => {
     _orders,
     _order_trips,
     _ord_trip_leg,
-    _customers
+    _customers,
+    _pd_tnc,
+    _attachments,
   };
 };
 

@@ -3,6 +3,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
+import axios from "axios";
 import setRoutes from "./routes/routeController.js";
 import errorHandler from './utils/ErrorHandler/errorhandler.js';
 import { connectDB } from "./config/MySqldbconfig.js";
@@ -18,7 +19,7 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
+    methods: ["GET","POST","PUT","DELETE","PATCH"],
   }
 });
 
@@ -38,6 +39,26 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("🔌 User disconnected:", socket.id);
+  });
+
+  // Handle Order Acceptance from Partner App
+  socket.on("dp_accepted_order", async (data) => {
+    console.log(`[Socket] 🤝 Partner accepted order: ${data.orderId} for customer: ${data.customerId}`);
+    
+    try {
+        // Notify Customer Backend (Port 5000)
+        // In local dev, we use localhost or the specified IP
+        const customerBackendUrl = process.env.CUSTOMER_BACKEND_URL || "http://localhost:5000";
+        
+        console.log(`[Internal Bridge] 🌉 Forwarding acceptance to ${customerBackendUrl}...`);
+        
+        const response = await axios.post(`${customerBackendUrl}/api/internal/customer/notify-accepted`, data);
+        
+        console.log(`[Internal Bridge] ✅ Customer Backend response:`, response.data);
+        
+    } catch (error) {
+        console.error(`[Internal Bridge] ❌ Failed to forward acceptance:`, error.response?.data || error.message);
+    }
   });
 });
 
@@ -262,7 +283,7 @@ httpServer.listen(port, '0.0.0.0', () => {
   if (process.env.NODE_ENV === "production") {
     console.log(`🚀 Server running on port ${port}`);
   } else {
-    console.log(`🚀 Server running locally on http://192.168.0.169:${port}`);
+    console.log(`🚀 Server running locally on http://10.246.158.217:${port}`);
   }
 });
 

@@ -16,7 +16,7 @@ export const sendResult = ({ res,resCode=200, result, message }) => {
     result: result,
   });
 };
-export const sendError = ({ res, errorCode = 400, error, message }) => {
+export const sendError = ({ res, errorCode = 400, error, message="Internal server error" }) => {
   res.status(errorCode).json({
     status: "failed",
     message: message,

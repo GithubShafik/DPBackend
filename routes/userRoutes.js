@@ -387,4 +387,49 @@ router.post("/update_profile", checkUserAuth, UserController.updateUserProfile);
  */
 router.post("/register", UserController.RegisterPartner);
 
+/**
+ * @swagger
+ * /api/v1/user/tnc:
+ *   get:
+ *     summary: Get Terms & Conditions
+ *     description: Fetch Terms and Conditions for Customer, Delivery Partner, Privacy and Security from PDTnC table.
+ *     tags: [Terms & Conditions]
+ *     responses:
+ *       200:
+ *         description: Terms & Conditions fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: success
+ *                 message:
+ *                   type: string
+ *                   example: Terms & Conditions fetched successfully
+ *                 result:
+ *                   type: object
+ *                   properties:
+ *                     TCCU:
+ *                       type: string
+ *                       description: Customer Terms & Conditions
+ *                       example: "Customer terms content..."
+ *                     TCDP:
+ *                       type: string
+ *                       description: Delivery Partner Terms & Conditions
+ *                       example: "Delivery partner terms..."
+ *                     TCPG:
+ *                       type: string
+ *                       description: Privacy Policy
+ *                       example: "Privacy policy content..."
+ *                     TCSC:
+ *                       type: string
+ *                       description: Security Clause
+ *                       example: "Security terms..."
+ *       500:
+ *         description: Failed to fetch Terms & Conditions
+ */
+router.get("/tnc", UserController.getTermsAndConditions);
+
 export default router;

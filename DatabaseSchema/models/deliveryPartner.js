@@ -83,6 +83,11 @@ export const DeliveryPartner = (sequelize, DataTypes) => {
         allowNull: true,
       },
 
+       AttID: {
+        type: DataTypes.JSON,
+        allowNull: true,
+      },
+
       DPSPOU: {
         type: DataTypes.STRING(50),
         allowNull: true,
