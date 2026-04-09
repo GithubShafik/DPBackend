@@ -1,3 +1,4 @@
+import axios from "axios";
 import db from "../config/database.js";
 import {
   generateAccessToken,
@@ -9,7 +10,7 @@ import jwt from "jsonwebtoken";
 dotenv.config();
 
 const { sequelize, models } = db;
-const { _delivery_partner, _delivery_partner_details , _delivery_partner_location } = models;
+const { _delivery_partner, _delivery_partner_details, _delivery_partner_location } = models;
 
 const HARDCODED_OTP = "1234";
 const otpStore = new Map();
@@ -20,97 +21,113 @@ class UserServices {
      SEND OTP
   ========================= */
 
-  static async handlePhoneLogin(req) {
-    try {
-      const { country_code, contact } = req.body;
+static async handlePhoneLogin(req) {
+  try {
+    const { country_code, contact } = req.body;
 
-      const key = `${country_code}_${contact}`;
+    const fullPhone = `${country_code}${contact}`;
+    // const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const randomOtp = HARDCODED_OTP;
 
-      otpStore.set(key, {
-        code: HARDCODED_OTP,
-        createdAt: new Date(),
-      });
+    const response = await axios.get(
+      `https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${fullPhone}/${randomOtp}/PaddalDrop%20OTP%20Template-2`
+    );
 
-      console.log(`OTP for ${key}: ${HARDCODED_OTP}`);
-
-      return true;
-    } catch (error) {
-      throw error;
+    if (response.data.Status !== "Success") {
+      throw new Error("Failed to send OTP");
     }
-  }
 
+    otpStore.set(fullPhone, {
+      code: randomOtp,
+      createdAt: new Date(),
+    });
+
+    return {
+      message: "OTP sent successfully",
+    };
+
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
+}
   /* =========================
      VERIFY OTP + LOGIN
   ========================= */
 
   static async handlePhoneLoginVerify(req) {
-    let t;
+  let t;
 
-    try {
-      const { country_code, contact, code } = req.body;
+  try {
+    const { country_code, contact, code } = req.body;
 
-      const key = `${country_code}_${contact}`;
-      const storedOtp = otpStore.get(key);
+    const fullPhone = `${country_code}${contact}`;
+    const storedOtp = otpStore.get(fullPhone);
 
-      if (!storedOtp) throw new Error("OTP not found");
+    if (!storedOtp) throw new Error("OTP not found");
 
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    // OTP expiry (10 min)
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
 
-      if (storedOtp.createdAt < tenMinutesAgo) {
-        otpStore.delete(key);
-        throw new Error("OTP expired");
-      }
+    if (storedOtp.createdAt < tenMinutesAgo) {
+      otpStore.delete(fullPhone);
+      throw new Error("OTP expired");
+    }
 
-      if (storedOtp.code !== code) {
-        throw new Error("Invalid OTP");
-      }
+    // OTP match
+    if (storedOtp.code !== code) {
+      throw new Error("Invalid OTP");
+    }
 
-      otpStore.delete(key);
+    otpStore.delete(fullPhone);
 
-      let partner = await _delivery_partner.findOne({
-        where: {
+    /* ===== LOGIN / REGISTER ===== */
+
+    let partner = await _delivery_partner.findOne({
+      where: {
+        DPRMN: contact,
+        DPRNC: country_code,
+      },
+    });
+
+    if (!partner) {
+      t = await sequelize.transaction();
+
+      const dpId = `DP${Date.now().toString().slice(-8)}`;
+
+      partner = await _delivery_partner.create(
+        {
+          DPID: dpId,
           DPRMN: contact,
           DPRNC: country_code,
+          DPSTAT: 0,
         },
-      });
+        { transaction: t }
+      );
 
-      if (!partner) {
-        t = await sequelize.transaction();
-
-        const dpId = `DP${Date.now().toString().slice(-8)}`;
-
-        partner = await _delivery_partner.create(
-          {
-            DPID: dpId,
-            DPRMN: contact,
-            DPRNC: country_code,
-            DPSTAT: 0,
-          },
-          { transaction: t }
-        );
-
-        await t.commit();
-      }
-
-      const payload = {
-        id: partner.DPID,
-        contact: partner.DPRMN,
-      };
-
-      const accessToken = generateAccessToken(payload);
-      const refreshToken = generateRefreshToken(payload);
-
-      return {
-        user: partner,
-        accessToken,
-        refreshToken,
-        isNewUser: !partner.DPFN,
-      };
-    } catch (error) {
-      if (t) await t.rollback();
-      throw error;
+      await t.commit();
     }
+
+    const payload = {
+      id: partner.DPID,
+      contact: partner.DPRMN,
+    };
+
+    const accessToken = generateAccessToken(payload);
+    const refreshToken = generateRefreshToken(payload);
+
+    return {
+      user: partner,
+      accessToken,
+      refreshToken,
+      isNewUser: !partner.DPFN,
+    };
+
+  } catch (error) {
+    if (t) await t.rollback();
+    throw error;
   }
+}
 
   /* =========================
      VERIFY OTP ONLY
