@@ -75,7 +75,7 @@ import { ExpressAdapter } from "@bull-board/express";
 // import {IndexDeletingQueue} from "./communication/queues/indexDeletingQueue.js"
 
 // Ensure port is a number
-const port = parseInt(process.env.PORT, 10) || 8000;
+const port = parseInt(process.env.PORT, 10) || 8001;
 console.log("PORT variable:", process.env.PORT);
 console.log("Starting server on port:", port);
 
@@ -286,5 +286,4 @@ httpServer.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Server running locally on http://192.168.0.169:${port}`);
   }
 });
-
 export default app;

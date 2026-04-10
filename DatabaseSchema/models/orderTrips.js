@@ -75,6 +75,16 @@ export const OrderTrips = (sequelize, DataTypes) => {
         type: DataTypes.STRING(100),
         allowNull: true,
       },
+      OTDN: {
+        type: DataTypes.STRING(100),
+        allowNull: true,
+        comment: "Order trip destination contact name",
+      },
+      OTDO: {
+        type: DataTypes.STRING(20),
+        allowNull: true,
+        comment: "Order trip destination contact phone",
+      },
       OTSD: {
         type: DataTypes.DATE,
         allowNull: true,
