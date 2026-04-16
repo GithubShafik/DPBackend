@@ -44,13 +44,21 @@ io.on("connection", (socket) => {
   // Handle Order Acceptance from Partner App
   socket.on("dp_accepted_order", async (data) => {
     console.log(`[Socket] 🤝 Partner accepted order: ${data.orderId} for customer: ${data.customerId}`);
+    console.log(`[Socket] 📦 Full payload received:`, JSON.stringify(data, null, 2));
     
     try {
+        // Validate required fields
+        if (!data.orderId || !data.customerId) {
+          console.error(`[Socket] ❌ Missing required fields: orderId=${data.orderId}, customerId=${data.customerId}`);
+          return;
+        }
+        
         // Notify Customer Backend (Port 5000)
         // In local dev, we use localhost or the specified IP
         const customerBackendUrl = process.env.CUSTOMER_BACKEND_URL || "http://localhost:5000";
         
         console.log(`[Internal Bridge] 🌉 Forwarding acceptance to ${customerBackendUrl}...`);
+        console.log(`[Internal Bridge] 📤 Payload being sent:`, JSON.stringify(data, null, 2));
         
         const response = await axios.post(`${customerBackendUrl}/api/internal/customer/notify-accepted`, data);
         
@@ -58,6 +66,7 @@ io.on("connection", (socket) => {
         
     } catch (error) {
         console.error(`[Internal Bridge] ❌ Failed to forward acceptance:`, error.response?.data || error.message);
+        console.error(`[Internal Bridge] 🔍 Error details:`, error);
     }
   });
 });

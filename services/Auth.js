@@ -29,13 +29,13 @@ static async handlePhoneLogin(req) {
     // const randomOtp = Math.floor(1000 + Math.random() * 9000).toString();
     const randomOtp = HARDCODED_OTP;
 
-    const response = await axios.get(
-      `https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${fullPhone}/${randomOtp}/PaddalDrop%20OTP%20Template-2`
-    );
+    // const response = await axios.get(
+    //   `https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${fullPhone}/${randomOtp}/PaddalDrop%20OTP%20Template-2`
+    // );
 
-    if (response.data.Status !== "Success") {
-      throw new Error("Failed to send OTP");
-    }
+    // if (randomOtp !== '0000') {
+    //   throw new Error("Failed to send OTP");
+    // }
 
     otpStore.set(fullPhone, {
       code: randomOtp,

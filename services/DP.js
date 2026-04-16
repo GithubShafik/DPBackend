@@ -98,7 +98,7 @@ class DPServices {
       // Update order status and assign delivery partner
       const [updatedRows] = await _orders.update(
         { 
-          ORST: "Accepted",
+          ORST: "Pickup Confirmed",  // Status 2: Matches OrderStatus table
           DPID: dpId
         },
         {

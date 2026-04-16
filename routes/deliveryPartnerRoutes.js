@@ -1,6 +1,7 @@
 import express from "express";
 import UserController from "../controllers/userController.js";
 import ReportController from "../controllers/reportController.js";
+import OrderStatusController from "../controllers/orderStatusController.js";
 import checkUserAuth from "../middlewares/auth-middleware.js";
 
 const router = express.Router();
@@ -400,5 +401,173 @@ router.get("/reports/summary", checkUserAuth, ReportController.getOrderSummary);
  *         description: Internal Server Error
  */
 router.get("/reports/export", checkUserAuth, ReportController.exportOrderHistory);
+
+// ==========================================
+// Order Status Management Routes
+// ==========================================
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/order-statuses:
+ *   get:
+ *     summary: Get all available order statuses
+ *     tags: [Order Status]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Order statuses fetched successfully
+ */
+router.get("/order-statuses", checkUserAuth, OrderStatusController.getAllStatuses);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/order/{orderId}/status:
+ *   get:
+ *     summary: Get current order status
+ *     tags: [Order Status]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order status fetched successfully
+ */
+router.get("/order/:orderId/status", checkUserAuth, OrderStatusController.getOrderStatus);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/order/{orderId}/allowed-transitions:
+ *   get:
+ *     summary: Get allowed status transitions for an order
+ *     tags: [Order Status]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Allowed transitions fetched successfully
+ */
+router.get("/order/:orderId/allowed-transitions", checkUserAuth, OrderStatusController.getAllowedTransitions);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/order/{orderId}/status:
+ *   post:
+ *     summary: Update order status
+ *     tags: [Order Status]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 example: "Order Picked"
+ *     responses:
+ *       200:
+ *         description: Order status updated successfully
+ */
+router.post("/order/:orderId/status", checkUserAuth, OrderStatusController.updateOrderStatus);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/order/{orderId}/pickup:
+ *   post:
+ *     summary: Mark order as picked up
+ *     tags: [Order Status]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order marked as picked up
+ */
+router.post("/order/:orderId/pickup", checkUserAuth, OrderStatusController.markOrderPicked);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/order/{orderId}/start-trip:
+ *   post:
+ *     summary: Start the trip
+ *     tags: [Order Status]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Trip started successfully
+ */
+router.post("/order/:orderId/start-trip", checkUserAuth, OrderStatusController.startTrip);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/order/{orderId}/deliver:
+ *   post:
+ *     summary: Mark order as delivered
+ *     tags: [Order Status]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order marked as delivered
+ */
+router.post("/order/:orderId/deliver", checkUserAuth, OrderStatusController.markOrderDelivered);
+
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/order/{orderId}/resume:
+ *   post:
+ *     summary: Resume order after incident (Trip Aborted -> Trip Started)
+ *     tags: [Order Status]
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: orderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Order resumed successfully
+ */
+router.post("/order/:orderId/resume", checkUserAuth, OrderStatusController.resumeOrder);
 
 export default router;
