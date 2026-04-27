@@ -41,15 +41,26 @@ class DPServices {
         return newLocation;
       } else {
 
-        await _delivery_partner_location.update(
-          {
-            DPOID,
-            DPTID,
+        // Only update location-related fields; do NOT overwrite DPOID/DPTID
+        // DPOID is managed by handleAcceptOrder (set) and orderStatusService (clear)
+        const updateData = {
             DPSTA,
             DPCLL,
             DPCDT: new Date(),
             DPCSP,
-          },
+        };
+
+        // Only update DPOID/DPTID if explicitly provided and non-empty
+        // This prevents periodic location updates from clearing an active order assignment
+        if (DPOID !== undefined && DPOID !== null && DPOID !== '') {
+            updateData.DPOID = DPOID;
+        }
+        if (DPTID !== undefined && DPTID !== null && DPTID !== '') {
+            updateData.DPTID = DPTID;
+        }
+
+        await _delivery_partner_location.update(
+          updateData,
           {
             where: { DPID },
             transaction: t,
@@ -135,6 +146,20 @@ class DPServices {
       );
 
       await t.commit();
+
+      // Update DPLocation: assign order ID to mark DP as busy
+      try {
+        const updateData = { DPOID: orderId };
+        if (req.body.latitude && req.body.longitude) {
+          updateData.DPCLL = `${req.body.latitude},${req.body.longitude}`;
+          updateData.DPCDT = new Date();
+        }
+        await _delivery_partner_location.update(updateData, { where: { DPID: dpId } });
+        console.log(`📍 DPLocation updated: DPOID=${orderId} for DPID=${dpId}`);
+      } catch (locError) {
+        console.error('⚠️ Failed to update DPLocation on accept:', locError.message);
+      }
+
       return { success: true, orderId, dpId };
 
     } catch (error) {

@@ -297,6 +297,21 @@ class OrderStatusService {
 
       console.log(`✅ Order ${orderId} status updated: ${currentStatus} → ${newStatus}`);
 
+      // If order is fully delivered or closed, free up the DP for new orders
+      const finalStatuses = [ORDER_STATUS.ORDER_DELIVERED, ORDER_STATUS.ORDER_CLOSED];
+      if (finalStatuses.includes(newStatus) && (dpId || order.DPID)) {
+        try {
+          const { _delivery_partner_location } = models;
+          await _delivery_partner_location.update(
+            { DPOID: null },
+            { where: { DPID: dpId || order.DPID } }
+          );
+          console.log(`📍 DPLocation cleared: DPOID=null for DPID=${dpId || order.DPID}`);
+        } catch (locError) {
+          console.error('⚠️ Failed to clear DPLocation on delivery:', locError.message);
+        }
+      }
+
       // Notify customer about status change (fire and forget)
       this.notifyCustomerStatusUpdate(orderId, newStatus, dpId).catch(err => {
         console.error('Failed to notify customer:', err);
