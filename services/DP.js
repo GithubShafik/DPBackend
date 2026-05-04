@@ -106,6 +106,10 @@ class DPServices {
         throw new Error("Order already accepted by another partner");
       }
 
+      if (existingOrder.ORST === "Order Cancelled") {
+        throw new Error("You can't accept this order because it is cancelled by user");
+      }
+
       // Update order status and assign delivery partner
       const [updatedRows] = await _orders.update(
         { 

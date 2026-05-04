@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const { sequelize, models } = db;
-const { _orders, _order_trips, _ord_trip_leg, _customers, _delivery_partner } = models;
+const { _orders, _order_trips, _ord_trip_leg, _customers, _delivery_partner , _delivery_partner_home } = models;
 
 class ReportServices {
   /**
@@ -392,6 +392,31 @@ class ReportServices {
       throw error;
     }
   }
+
+  /**
+   * Get delivery partner home records for a delivery partner with filters
+   * @param {Object} req - Express request object
+   * @returns {Object} - delivery partner home
+   */
+  static async handleGetDeliveryPartnerHome(req) {
+  try {
+    const dpId = req.user?.DPID || req.body?.DPID || req.query?.dpId;
+
+    if (!dpId) {
+      throw new Error("DPID is required");
+    }
+
+    const summary = await _delivery_partner_home.findAll({
+      where: { DPID: dpId },
+      raw: true,
+    });
+
+    return { summary };
+  } catch (error) {
+    console.error("❌ GetDeliveryPartnerHome Error:", error);
+    throw error;
+  }
+}
 }
 
 export default ReportServices;

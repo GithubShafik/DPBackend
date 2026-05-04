@@ -10,6 +10,8 @@ import { Attachments } from "./attachments.js";
 import { OrderStatus } from "./orderStatus.js";
 import { OrderIncidents } from "./orderIncidents.js";
 import { OrderIncidentReasons } from "./orderIncidentReasons.js";
+import { DeliveryPartnerHome } from "./deliveryPartnerHome.js";
+
 
 const models = (sequelize, DataTypes) => {
   const _delivery_partner = DeliveryPartner(sequelize, DataTypes);
@@ -24,6 +26,7 @@ const models = (sequelize, DataTypes) => {
   const _order_status = OrderStatus(sequelize, DataTypes);
   const _order_incidents = OrderIncidents(sequelize, DataTypes);
   const _order_incident_reasons = OrderIncidentReasons(sequelize, DataTypes);
+  const _delivery_partner_home = DeliveryPartnerHome(sequelize, DataTypes);
 
   /* ---------------- Delivery Partner ---------------- */
   _delivery_partner.hasMany(_delivery_partner_details, {
@@ -214,6 +217,7 @@ const models = (sequelize, DataTypes) => {
     _attachments,
     _order_incidents,
     _order_incident_reasons,
+    _delivery_partner_home
   };
 };
 

@@ -297,8 +297,8 @@ class OrderStatusService {
 
       console.log(`✅ Order ${orderId} status updated: ${currentStatus} → ${newStatus}`);
 
-      // If order is fully delivered or closed, free up the DP for new orders
-      const finalStatuses = [ORDER_STATUS.ORDER_DELIVERED, ORDER_STATUS.ORDER_CLOSED];
+      // If order is fully delivered, closed, or cancelled, free up the DP for new orders
+      const finalStatuses = [ORDER_STATUS.ORDER_DELIVERED, ORDER_STATUS.ORDER_CLOSED, ORDER_STATUS.ORDER_CANCELLED];
       if (finalStatuses.includes(newStatus) && (dpId || order.DPID)) {
         try {
           const { _delivery_partner_location } = models;
@@ -308,7 +308,7 @@ class OrderStatusService {
           );
           console.log(`📍 DPLocation cleared: DPOID=null for DPID=${dpId || order.DPID}`);
         } catch (locError) {
-          console.error('⚠️ Failed to clear DPLocation on delivery:', locError.message);
+          console.error('⚠️ Failed to clear DPLocation on delivery/cancellation:', locError.message);
         }
       }
 

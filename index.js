@@ -141,6 +141,39 @@ app.post("/api/internal/notify-partners", (req, res) => {
         message: `Successfully emitted events to ${notifiedCount} partners` 
     });
 });
+
+app.post("/api/internal/order-cancelled", async (req, res) => {
+    const { orderId, partnerId, reason } = req.body;
+    
+    if (!orderId || !partnerId) {
+        return res.status(400).json({ success: false, error: "Missing orderId or partnerId" });
+    }
+    
+    try {
+        console.log(`[Internal Bridge] 🚫 Received order cancellation for ${orderId}, Partner: ${partnerId}`);
+        
+        const roomName = `partner_${partnerId}`;
+        io.to(roomName).emit("order_cancelled", { orderId, reason });
+        console.log(`[Internal API] 🔔 Emitted 'order_cancelled' to room: ${roomName}`);
+        
+        const dbModule = await import("./config/database.js");
+        const db = dbModule.default;
+        const { _delivery_partner_location } = db.models;
+        
+        if (_delivery_partner_location) {
+            await _delivery_partner_location.update(
+                { DPOID: null },
+                { where: { DPID: partnerId } }
+            );
+            console.log(`📍 DPLocation cleared: DPOID=null for DPID=${partnerId} due to cancellation`);
+        }
+        
+        res.status(200).json({ success: true, message: "Order cancellation processed" });
+    } catch (error) {
+        console.error("[Internal Bridge] ❌ Error processing order cancellation:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
 // -----------------------------------------------------------
 serverAdapter.setBasePath("/admin/queues");
 

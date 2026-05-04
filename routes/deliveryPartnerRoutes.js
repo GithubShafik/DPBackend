@@ -570,4 +570,25 @@ router.post("/order/:orderId/deliver", checkUserAuth, OrderStatusController.mark
  */
 router.post("/order/:orderId/resume", checkUserAuth, OrderStatusController.resumeOrder);
 
+/**
+ * @swagger
+ * /api/v1/deliveryPartner/reports/deliveryPartnerHome:
+ *   get:
+ *     summary: Get Delivery Partner Home Data
+ *     tags:
+ *       - Delivery Partner Reports
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: dpId
+ *         schema:
+ *           type: string
+ *         required: false
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+router.get("/reports/deliveryPartnerHome", checkUserAuth, ReportController.getDeliveryPartnerHome);
+
 export default router;

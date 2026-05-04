@@ -158,6 +158,34 @@ class ReportController {
       });
     }
   };
+
+  /**
+   * Get earnings report for delivery partner
+   * GET /api/v1/deliveryPartner/reports/earnings
+   */
+  static getDeliveryPartnerHome = async (req, res) => {
+    try {
+      const response = await ReportServices.handleGetDeliveryPartnerHome(req);
+
+      return sendResult({
+        resCode: 200,
+        res,
+        result: response,
+        message: "Delivery Partner Home data fetched successfully",
+      });
+    } catch (error) {
+      console.error("❌ GetEarningsReport Error:", error);
+
+      const statusCode = error.message?.includes("required") ? 400 : 500;
+
+      return sendError({
+        errorCode: statusCode,
+        res,
+        error: error?.message,
+        message: error?.message || "Failed to fetch Delivery Partner Home data",
+      });
+    }
+  };
 }
 
 export default ReportController;
