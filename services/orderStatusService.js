@@ -139,7 +139,7 @@ class OrderStatusService {
 
       // Try to get customer ID from CID or ORCD
       const customerId = order.CID || order.ORCD;
-      
+
       if (!customerId) {
         console.warn(`⚠️ No customer ID found for order ${orderId}`);
         return;
@@ -150,7 +150,7 @@ class OrderStatusService {
       if (order.CID) {
         customerData = await _customers.findOne({ where: { CID: order.CID } });
       }
-      
+
       if (!customerData && order.ORCD) {
         customerData = await _customers.findOne({ where: { CID: order.ORCD } });
       }
@@ -167,7 +167,7 @@ class OrderStatusService {
         const dpLoc = await _delivery_partner_location.findOne({
           where: { DPID: order.DPID }
         });
-        
+
         if (dpLoc && dpLoc.DPCLL) {
           const [lat, lng] = dpLoc.DPCLL.split(',').map(Number);
           dpLocation = { latitude: lat, longitude: lng };
@@ -191,7 +191,7 @@ class OrderStatusService {
 
       // Send to customer backend
       const customerBackendUrl = process.env.CUSTOMER_BACKEND_URL || 'http://localhost:5000';
-      
+
       console.log(`[Status Update] 📢 Notifying customer backend about status change to: ${newStatus}`);
       console.log(`[Status Update] 📤 Payload:`, JSON.stringify(notificationPayload, null, 2));
 
@@ -241,7 +241,7 @@ class OrderStatusService {
     let transaction;
     try {
       console.log(`🔄 updateOrderStatus called: orderId=${orderId}, newStatus=${newStatus}, dpId=${dpId}`);
-      
+
       transaction = await sequelize.transaction();
 
       // Get current order
@@ -255,10 +255,10 @@ class OrderStatusService {
       }
 
       const currentStatus = order.ORST;
-      
+
       // Trim any whitespace from status
       const trimmedCurrentStatus = currentStatus ? currentStatus.trim() : '';
-      
+
       console.log(`📊 Current order status: "${currentStatus}" (trimmed: "${trimmedCurrentStatus}")`);
       console.log(`📊 Attempting transition: "${trimmedCurrentStatus}" → "${newStatus}"`);
       console.log(`📊 All VALID_TRANSITIONS keys:`, Object.keys(VALID_TRANSITIONS));
@@ -292,6 +292,111 @@ class OrderStatusService {
       if (updatedRows === 0) {
         throw new Error('Failed to update order status');
       }
+
+      // ──────────────────────────────────────────────────
+      // Update OTSD / OTDD on the correct trip(s)
+      // Logic:
+      //   • "Trip Started"       → set OTSD on Trip 1
+      //   • "Trip N Started"     → set OTSD on Trip N, and set OTDD on Trip N-1 (previous trip ends when next starts)
+      //   • "Order Delivered N"  → set OTDD on Trip N, and set OTSD on Trip N+1 (next trip starts when this one delivers)
+      //   • "Order Delivered"    → set OTDD on the last trip, and update ORDD on the Orders table
+      // ──────────────────────────────────────────────────
+
+      // Fetch all trips for this order (ordered by creation sequence)
+      const orderTrips = await _order_trips.findAll({
+        where: { ORID: orderId },
+        order: [['OTID', 'ASC']],
+        transaction
+      });
+
+      const now = new Date();
+
+      if (orderTrips && orderTrips.length > 0) {
+        // --- TRIP STARTED events ---
+        if (newStatus === ORDER_STATUS.TRIP_STARTED) {
+          // First trip starts → set OTSD on trip 1
+          const trip = orderTrips[0];
+          await _order_trips.update(
+            { OTSD: now },
+            { where: { OTID: trip.OTID }, transaction }
+          );
+          console.log(`🕒 OTSD set for Trip 1 (OTID: ${trip.OTID}) at ${now.toISOString()}`);
+        } else {
+          const startMatch = newStatus.match(/^Trip (\d+) Started$/);
+          if (startMatch) {
+            const tripNum = parseInt(startMatch[1]);
+            // Set OTSD on the current trip (Trip N)
+            if (tripNum <= orderTrips.length) {
+              const currentTrip = orderTrips[tripNum - 1];
+              await _order_trips.update(
+                { OTSD: now },
+                { where: { OTID: currentTrip.OTID }, transaction }
+              );
+              console.log(`🕒 OTSD set for Trip ${tripNum} (OTID: ${currentTrip.OTID}) at ${now.toISOString()}`);
+            }
+            // Also set OTDD on the previous trip (Trip N-1) — previous trip ends when next starts
+            const prevTripIdx = tripNum - 2; // e.g. Trip 2 Started → close Trip 1 (index 0)
+            if (prevTripIdx >= 0 && prevTripIdx < orderTrips.length) {
+              const prevTrip = orderTrips[prevTripIdx];
+              // Only set if not already set (avoid overwriting if "Order Delivered N" already set it)
+              if (!prevTrip.OTDD) {
+                await _order_trips.update(
+                  { OTDD: now },
+                  { where: { OTID: prevTrip.OTID }, transaction }
+                );
+                console.log(`✅ OTDD set for Trip ${prevTripIdx + 1} (OTID: ${prevTrip.OTID}) — closed by Trip ${tripNum} start`);
+              }
+            }
+          }
+        }
+
+        // --- ORDER DELIVERED events ---
+        if (newStatus === ORDER_STATUS.ORDER_DELIVERED) {
+          // Final delivery → set OTDD on the last trip
+          const lastTrip = orderTrips[orderTrips.length - 1];
+          await _order_trips.update(
+            { OTDD: now },
+            { where: { OTID: lastTrip.OTID }, transaction }
+          );
+          console.log(`✅ OTDD set for last Trip ${orderTrips.length} (OTID: ${lastTrip.OTID}) at ${now.toISOString()}`);
+
+          // Also update ORDD on the Orders table — order is fully delivered
+          await _orders.update(
+            { ORDD: now },
+            { where: { ORID: orderId }, transaction }
+          );
+          console.log(`📦 ORDD set on Orders table for order ${orderId} at ${now.toISOString()}`);
+        } else {
+          const deliveredMatch = newStatus.match(/^Order Delivered (\d+)$/);
+          if (deliveredMatch) {
+            const tripNum = parseInt(deliveredMatch[1]);
+            // Set OTDD on the delivered trip
+            if (tripNum <= orderTrips.length) {
+              const deliveredTrip = orderTrips[tripNum - 1];
+              await _order_trips.update(
+                { OTDD: now },
+                { where: { OTID: deliveredTrip.OTID }, transaction }
+              );
+              console.log(`✅ OTDD set for Trip ${tripNum} (OTID: ${deliveredTrip.OTID}) at ${now.toISOString()}`);
+            }
+            // Also set OTSD on the next trip (Trip N+1) — next trip starts when this one delivers
+            const nextTripIdx = tripNum; // e.g. "Order Delivered 1" → start Trip 2 (index 1)
+            if (nextTripIdx < orderTrips.length) {
+              const nextTrip = orderTrips[nextTripIdx];
+              // Only set if not already set (avoid overwriting if "Trip N Started" already set it)
+              if (!nextTrip.OTSD) {
+                await _order_trips.update(
+                  { OTSD: now },
+                  { where: { OTID: nextTrip.OTID }, transaction }
+                );
+                console.log(`🕒 OTSD set for Trip ${nextTripIdx + 1} (OTID: ${nextTrip.OTID}) — started by Trip ${tripNum} delivery`);
+              }
+            }
+          }
+        }
+      }
+
+      // ──────────────────────────────────────────────────
 
       await transaction.commit();
 
