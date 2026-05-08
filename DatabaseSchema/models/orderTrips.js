@@ -93,6 +93,10 @@ export const OrderTrips = (sequelize, DataTypes) => {
         type: DataTypes.DATE,
         allowNull: true,
       },
+      OTST:{
+        type: DataTypes.STRING(20),
+        allowNull: true
+      }
     },
     {
       timestamps: false,

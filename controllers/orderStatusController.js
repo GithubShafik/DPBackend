@@ -2,7 +2,7 @@ import OrderStatusService from '../services/orderStatusService.js';
 import { sendResult, sendError } from '../constant/HttpResponse.js';
 
 class OrderStatusController {
-  
+
   /**
    * GET /api/v1/deliveryPartner/order/:orderId/status
    * Get current order status
@@ -11,7 +11,7 @@ class OrderStatusController {
     try {
       const { orderId } = req.params;
       const status = await OrderStatusService.getOrderStatus(orderId);
-      
+
       return sendResult({
         resCode: 200,
         res,
@@ -37,7 +37,7 @@ class OrderStatusController {
     try {
       const { orderId } = req.params;
       const transitions = await OrderStatusService.getAllowedTransitions(orderId);
-      
+
       return sendResult({
         resCode: 200,
         res,
@@ -75,7 +75,7 @@ class OrderStatusController {
       }
 
       const result = await OrderStatusService.updateOrderStatus(orderId, status, dpId);
-      
+
       return sendResult({
         resCode: 200,
         res,
@@ -117,11 +117,11 @@ class OrderStatusController {
       }
 
       const result = await OrderStatusService.updateOrderStatus(
-        orderId, 
-        OrderStatusService.ORDER_STATUS.ORDER_PICKED, 
+        orderId,
+        OrderStatusService.ORDER_STATUS.ORDER_PICKED,
         dpId
       );
-      
+
       return sendResult({
         resCode: 200,
         res,
@@ -170,11 +170,11 @@ class OrderStatusController {
       }
 
       const result = await OrderStatusService.updateOrderStatus(
-        orderId, 
-        nextStatus, 
+        orderId,
+        nextStatus,
         dpId
       );
-      
+
       return sendResult({
         resCode: 200,
         res,
@@ -211,7 +211,7 @@ class OrderStatusController {
       // If we are at Trip N Started, and frontend says deliver, we can just advance it to Delivered N. 
       // But we need to know if it's the LAST trip to send "Order Delivered".
       // Frontend knows if it's the last trip! But it isn't sending it. Let's query db carefully.
-      
+
       let nextStatus = OrderStatusService.ORDER_STATUS.ORDER_DELIVERED;
 
       try {
@@ -221,9 +221,9 @@ class OrderStatusController {
         if (tripCount > 1) {
           const tripMatch = currentStatus.match(/^Trip (\d+) Started$/);
           const currentLeg = tripMatch ? parseInt(tripMatch[1]) : (currentStatus === OrderStatusService.ORDER_STATUS.TRIP_STARTED ? 1 : null);
-          
+
           if (currentLeg && currentLeg < tripCount) {
-             nextStatus = `Order Delivered ${currentLeg}`;
+            nextStatus = `Order Delivered ${currentLeg}`;
           }
         }
       } catch (dbErr) {
@@ -231,11 +231,11 @@ class OrderStatusController {
       }
 
       const result = await OrderStatusService.updateOrderStatus(
-        orderId, 
-        nextStatus, 
+        orderId,
+        nextStatus,
         dpId
       );
-      
+
       return sendResult({
         resCode: 200,
         res,
@@ -275,11 +275,11 @@ class OrderStatusController {
       }
 
       const result = await OrderStatusService.updateOrderStatus(
-        orderId, 
-        OrderStatusService.ORDER_STATUS.TRIP_STARTED, 
+        orderId,
+        OrderStatusService.ORDER_STATUS.TRIP_STARTED,
         dpId
       );
-      
+
       return sendResult({
         resCode: 200,
         res,
@@ -305,7 +305,7 @@ class OrderStatusController {
   static getAllStatuses = async (req, res) => {
     try {
       const statuses = await OrderStatusService.getAllStatuses();
-      
+
       return sendResult({
         resCode: 200,
         res,

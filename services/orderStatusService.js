@@ -33,6 +33,10 @@ export const ORDER_STATUS = {
   ORDER_DELIVERED_3: 'Order Delivered 3',
   ORDER_DELIVERED_4: 'Order Delivered 4',
   ORDER_DELIVERED_5: 'Order Delivered 5',
+  DELIVERY_SUCCESSFUL: 'Delivery Successful',
+  PARTIAL_INCOMPLETE: 'Partial Incomplete',
+  TO_SECURITY: 'To Security',
+  TO_NEIGHBOUR: 'To Neighbour',
   ACCEPTED: 'Accepted' // Legacy status, will be mapped to Pickup Confirmed
 };
 
@@ -54,6 +58,10 @@ const VALID_TRANSITIONS = {
   [ORDER_STATUS.TRIP_STARTED]: [
     ORDER_STATUS.ORDER_DELIVERED,
     ORDER_STATUS.ORDER_DELIVERED_1,
+    ORDER_STATUS.DELIVERY_SUCCESSFUL,
+    ORDER_STATUS.PARTIAL_INCOMPLETE,
+    ORDER_STATUS.TO_SECURITY,
+    ORDER_STATUS.TO_NEIGHBOUR,
     ORDER_STATUS.TRIP_ABORTED
   ],
   [ORDER_STATUS.ORDER_DELIVERED_1]: [
@@ -63,6 +71,10 @@ const VALID_TRANSITIONS = {
   [ORDER_STATUS.TRIP_2_STARTED]: [
     ORDER_STATUS.ORDER_DELIVERED,
     ORDER_STATUS.ORDER_DELIVERED_2,
+    ORDER_STATUS.DELIVERY_SUCCESSFUL,
+    ORDER_STATUS.PARTIAL_INCOMPLETE,
+    ORDER_STATUS.TO_SECURITY,
+    ORDER_STATUS.TO_NEIGHBOUR,
     ORDER_STATUS.TRIP_ABORTED
   ],
   [ORDER_STATUS.ORDER_DELIVERED_2]: [
@@ -72,6 +84,10 @@ const VALID_TRANSITIONS = {
   [ORDER_STATUS.TRIP_3_STARTED]: [
     ORDER_STATUS.ORDER_DELIVERED,
     ORDER_STATUS.ORDER_DELIVERED_3,
+    ORDER_STATUS.DELIVERY_SUCCESSFUL,
+    ORDER_STATUS.PARTIAL_INCOMPLETE,
+    ORDER_STATUS.TO_SECURITY,
+    ORDER_STATUS.TO_NEIGHBOUR,
     ORDER_STATUS.TRIP_ABORTED
   ],
   [ORDER_STATUS.ORDER_DELIVERED_3]: [
@@ -81,6 +97,10 @@ const VALID_TRANSITIONS = {
   [ORDER_STATUS.TRIP_4_STARTED]: [
     ORDER_STATUS.ORDER_DELIVERED,
     ORDER_STATUS.ORDER_DELIVERED_4,
+    ORDER_STATUS.DELIVERY_SUCCESSFUL,
+    ORDER_STATUS.PARTIAL_INCOMPLETE,
+    ORDER_STATUS.TO_SECURITY,
+    ORDER_STATUS.TO_NEIGHBOUR,
     ORDER_STATUS.TRIP_ABORTED
   ],
   [ORDER_STATUS.ORDER_DELIVERED_4]: [
@@ -90,6 +110,10 @@ const VALID_TRANSITIONS = {
   [ORDER_STATUS.TRIP_5_STARTED]: [
     ORDER_STATUS.ORDER_DELIVERED,
     ORDER_STATUS.ORDER_DELIVERED_5,
+    ORDER_STATUS.DELIVERY_SUCCESSFUL,
+    ORDER_STATUS.PARTIAL_INCOMPLETE,
+    ORDER_STATUS.TO_SECURITY,
+    ORDER_STATUS.TO_NEIGHBOUR,
     ORDER_STATUS.TRIP_ABORTED
   ],
   [ORDER_STATUS.ORDER_DELIVERED_5]: [
@@ -98,9 +122,25 @@ const VALID_TRANSITIONS = {
   ],
   [ORDER_STATUS.TRIP_6_STARTED]: [
     ORDER_STATUS.ORDER_DELIVERED,
+    ORDER_STATUS.DELIVERY_SUCCESSFUL,
+    ORDER_STATUS.PARTIAL_INCOMPLETE,
+    ORDER_STATUS.TO_SECURITY,
+    ORDER_STATUS.TO_NEIGHBOUR,
     ORDER_STATUS.TRIP_ABORTED
   ],
   [ORDER_STATUS.ORDER_DELIVERED]: [
+    ORDER_STATUS.ORDER_CLOSED
+  ],
+  [ORDER_STATUS.DELIVERY_SUCCESSFUL]: [
+    ORDER_STATUS.ORDER_CLOSED
+  ],
+  [ORDER_STATUS.PARTIAL_INCOMPLETE]: [
+    ORDER_STATUS.ORDER_CLOSED
+  ],
+  [ORDER_STATUS.TO_SECURITY]: [
+    ORDER_STATUS.ORDER_CLOSED
+  ],
+  [ORDER_STATUS.TO_NEIGHBOUR]: [
     ORDER_STATUS.ORDER_CLOSED
   ],
   // Allow resuming from Trip Aborted back to Trip Started
@@ -317,10 +357,10 @@ class OrderStatusService {
           // First trip starts → set OTSD on trip 1
           const trip = orderTrips[0];
           await _order_trips.update(
-            { OTSD: now },
+            { OTSD: now, OTST: 'Trip 1 Started' },
             { where: { OTID: trip.OTID }, transaction }
           );
-          console.log(`🕒 OTSD set for Trip 1 (OTID: ${trip.OTID}) at ${now.toISOString()}`);
+          console.log(`OTSD and OTST set for Trip 1 (OTID: ${trip.OTID}) at ${now.toISOString()}`);
         } else {
           const startMatch = newStatus.match(/^Trip (\d+) Started$/);
           if (startMatch) {
@@ -329,10 +369,10 @@ class OrderStatusService {
             if (tripNum <= orderTrips.length) {
               const currentTrip = orderTrips[tripNum - 1];
               await _order_trips.update(
-                { OTSD: now },
+                { OTSD: now, OTST: `Trip ${tripNum} Started` },
                 { where: { OTID: currentTrip.OTID }, transaction }
               );
-              console.log(`🕒 OTSD set for Trip ${tripNum} (OTID: ${currentTrip.OTID}) at ${now.toISOString()}`);
+              console.log(`🕒 OTSD and OTST set for Trip ${tripNum} (OTID: ${currentTrip.OTID}) at ${now.toISOString()}`);
             }
             // Also set OTDD on the previous trip (Trip N-1) — previous trip ends when next starts
             const prevTripIdx = tripNum - 2; // e.g. Trip 2 Started → close Trip 1 (index 0)
@@ -341,56 +381,76 @@ class OrderStatusService {
               // Only set if not already set (avoid overwriting if "Order Delivered N" already set it)
               if (!prevTrip.OTDD) {
                 await _order_trips.update(
-                  { OTDD: now },
+                  { OTDD: now, OTST: `Order Delivered ${prevTripIdx + 1}` },
                   { where: { OTID: prevTrip.OTID }, transaction }
                 );
-                console.log(`✅ OTDD set for Trip ${prevTripIdx + 1} (OTID: ${prevTrip.OTID}) — closed by Trip ${tripNum} start`);
+                console.log(`✅ OTDD and OTST set for Trip ${prevTripIdx + 1} (OTID: ${prevTrip.OTID}) — closed by Trip ${tripNum} start`);
               }
             }
           }
         }
 
-        // --- ORDER DELIVERED events ---
-        if (newStatus === ORDER_STATUS.ORDER_DELIVERED) {
-          // Final delivery → set OTDD on the last trip
-          const lastTrip = orderTrips[orderTrips.length - 1];
-          await _order_trips.update(
-            { OTDD: now },
-            { where: { OTID: lastTrip.OTID }, transaction }
-          );
-          console.log(`✅ OTDD set for last Trip ${orderTrips.length} (OTID: ${lastTrip.OTID}) at ${now.toISOString()}`);
+        // --- ORDER DELIVERED and other delivery-like events ---
+        const otherDeliveryStatuses = [
+          ORDER_STATUS.DELIVERY_SUCCESSFUL,
+          ORDER_STATUS.PARTIAL_INCOMPLETE,
+          ORDER_STATUS.TO_SECURITY,
+          ORDER_STATUS.TO_NEIGHBOUR
+        ];
+        
+        const deliveredMatch = newStatus.match(/^Order Delivered (\d+)$/);
 
-          // Also update ORDD on the Orders table — order is fully delivered
-          await _orders.update(
-            { ORDD: now },
-            { where: { ORID: orderId }, transaction }
-          );
-          console.log(`📦 ORDD set on Orders table for order ${orderId} at ${now.toISOString()}`);
-        } else {
-          const deliveredMatch = newStatus.match(/^Order Delivered (\d+)$/);
-          if (deliveredMatch) {
+        if (newStatus === ORDER_STATUS.ORDER_DELIVERED || deliveredMatch || otherDeliveryStatuses.includes(newStatus)) {
+          let tripIdx;
+          let statusLabel = newStatus;
+
+          if (newStatus === ORDER_STATUS.ORDER_DELIVERED) {
+            // Final delivery → set OTDD on the last trip
+            tripIdx = orderTrips.length - 1;
+            statusLabel = `Order Delivered ${orderTrips.length}`;
+          } else if (deliveredMatch) {
+            // Numbered delivery status
             const tripNum = parseInt(deliveredMatch[1]);
-            // Set OTDD on the delivered trip
-            if (tripNum <= orderTrips.length) {
-              const deliveredTrip = orderTrips[tripNum - 1];
-              await _order_trips.update(
-                { OTDD: now },
-                { where: { OTID: deliveredTrip.OTID }, transaction }
-              );
-              console.log(`✅ OTDD set for Trip ${tripNum} (OTID: ${deliveredTrip.OTID}) at ${now.toISOString()}`);
-            }
-            // Also set OTSD on the next trip (Trip N+1) — next trip starts when this one delivers
-            const nextTripIdx = tripNum; // e.g. "Order Delivered 1" → start Trip 2 (index 1)
+            tripIdx = tripNum - 1;
+            statusLabel = `Order Delivered ${tripNum}`;
+          } else {
+            // Generic delivery status (To Security, etc.) → Find active trip or default to last
+            const activeTripIdx = orderTrips.findIndex(t => t.OTSD && !t.OTDD);
+            tripIdx = activeTripIdx !== -1 ? activeTripIdx : (orderTrips.length - 1);
+            statusLabel = `${newStatus} ${tripIdx + 1}`;
+          }
+
+          if (tripIdx >= 0 && tripIdx < orderTrips.length) {
+            const currentTrip = orderTrips[tripIdx];
+            const tripNum = tripIdx + 1;
+
+            await _order_trips.update(
+              { OTDD: now, OTST: statusLabel },
+              { where: { OTID: currentTrip.OTID }, transaction }
+            );
+            console.log(`✅ OTDD and OTST set for Trip ${tripNum} (${statusLabel}) at ${now.toISOString()}`);
+
+            // Also set OTSD on the next trip (Trip N+1) if it exists
+            const nextTripIdx = tripIdx + 1;
             if (nextTripIdx < orderTrips.length) {
               const nextTrip = orderTrips[nextTripIdx];
-              // Only set if not already set (avoid overwriting if "Trip N Started" already set it)
+              // Only set if not already set
               if (!nextTrip.OTSD) {
                 await _order_trips.update(
-                  { OTSD: now },
+                  { OTSD: now, OTST: `Trip ${nextTripIdx + 1} Started` },
                   { where: { OTID: nextTrip.OTID }, transaction }
                 );
-                console.log(`🕒 OTSD set for Trip ${nextTripIdx + 1} (OTID: ${nextTrip.OTID}) — started by Trip ${tripNum} delivery`);
+                console.log(`🕒 OTSD and OTST set for Trip ${nextTripIdx + 1} (OTID: ${nextTrip.OTID}) — started by ${statusLabel}`);
               }
+            }
+
+            // If this was the last trip or final delivery status, update ORDD on the Orders table
+            if (tripIdx === orderTrips.length - 1 || newStatus === ORDER_STATUS.ORDER_DELIVERED) {
+              await _orders.update(
+                { ORDD: now },
+                { where: { ORID: orderId }, transaction }
+              );
+              console.log(`📦 ORDD set on Orders table for order ${orderId} via ${statusLabel} at ${now.toISOString()}`);
             }
           }
         }
