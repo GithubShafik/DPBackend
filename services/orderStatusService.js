@@ -468,10 +468,10 @@ class OrderStatusService {
         try {
           const { _delivery_partner_location } = models;
           await _delivery_partner_location.update(
-            { DPOID: null },
+            { DPOID: null, DPTID: null },
             { where: { DPID: dpId || order.DPID } }
           );
-          console.log(`📍 DPLocation cleared: DPOID=null for DPID=${dpId || order.DPID}`);
+          console.log(`📍 DPLocation cleared: DPOID=null, DPTID=null for DPID=${dpId || order.DPID}`);
         } catch (locError) {
           console.error('⚠️ Failed to clear DPLocation on delivery/cancellation:', locError.message);
         }
