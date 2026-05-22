@@ -2,13 +2,14 @@
  * Order Status Management Service
  * Manages order status transitions based on the OrderStatus lookup table
  */
-
+ 
 import db from '../config/database.js';
 import axios from 'axios';
-
+import { Sequelize, Op } from 'sequelize';
+ 
 const { sequelize, models } = db;
 const { _orders, _order_status, _order_trips, _customers } = models;
-
+ 
 // Order Status Constants
 export const ORDER_STATUS = {
   ORDER_PLACED: 'Order Placed',
@@ -39,7 +40,7 @@ export const ORDER_STATUS = {
   TO_NEIGHBOUR: 'To Neighbour',
   ACCEPTED: 'Accepted' // Legacy status, will be mapped to Pickup Confirmed
 };
-
+ 
 // Valid status transitions
 const VALID_TRANSITIONS = {
   [ORDER_STATUS.ORDER_PLACED]: [
@@ -154,11 +155,11 @@ const VALID_TRANSITIONS = {
     ORDER_STATUS.ORDER_CANCELLED
   ]
 };
-
+ 
 class OrderStatusService {
   // Make ORDER_STATUS accessible as static property
   static ORDER_STATUS = ORDER_STATUS;
-
+ 
   /**
    * Notify customer backend about order status update
    */
@@ -171,35 +172,35 @@ class OrderStatusService {
           { model: _order_trips, as: 'trips' }
         ]
       });
-
+ 
       if (!order) {
         console.warn(`⚠️ Order ${orderId} not found for notification`);
         return;
       }
-
+ 
       // Try to get customer ID from CID or ORCD
       const customerId = order.CID || order.ORCD;
-
+ 
       if (!customerId) {
         console.warn(`⚠️ No customer ID found for order ${orderId}`);
         return;
       }
-
+ 
       // Get customer details
       let customerData = null;
       if (order.CID) {
         customerData = await _customers.findOne({ where: { CID: order.CID } });
       }
-
+ 
       if (!customerData && order.ORCD) {
         customerData = await _customers.findOne({ where: { CID: order.ORCD } });
       }
-
+ 
       if (!customerData) {
         console.warn(`⚠️ Customer not found for order ${orderId}`);
         return;
       }
-
+ 
       // Get DP location if available
       let dpLocation = null;
       if (order.DPID) {
@@ -207,13 +208,13 @@ class OrderStatusService {
         const dpLoc = await _delivery_partner_location.findOne({
           where: { DPID: order.DPID }
         });
-
+ 
         if (dpLoc && dpLoc.DPCLL) {
           const [lat, lng] = dpLoc.DPCLL.split(',').map(Number);
           dpLocation = { latitude: lat, longitude: lng };
         }
       }
-
+ 
       // Prepare notification payload
       const notificationPayload = {
         customerId: customerData.CID,
@@ -228,25 +229,25 @@ class OrderStatusService {
         dpLocation,
         estimatedTime: '15 mins'
       };
-
+ 
       // Send to customer backend
       const customerBackendUrl = process.env.CUSTOMER_BACKEND_URL || 'http://localhost:5000';
-
+ 
       console.log(`[Status Update] 📢 Notifying customer backend about status change to: ${newStatus}`);
       console.log(`[Status Update] 📤 Payload:`, JSON.stringify(notificationPayload, null, 2));
-
+ 
       await axios.post(
         `${customerBackendUrl}/api/internal/customer/notify-status-update`,
         notificationPayload
       ).catch(err => {
         console.error(`[Status Update] ❌ Failed to notify customer backend:`, err.message);
       });
-
+ 
     } catch (error) {
       console.error(`[Status Update] ❌ Error notifying customer:`, error.message);
     }
   }
-
+ 
   /**
    * Get all available order statuses from database
    */
@@ -261,7 +262,7 @@ class OrderStatusService {
       throw error;
     }
   }
-
+ 
   /**
    * Validate if a status transition is allowed
    */
@@ -273,7 +274,7 @@ class OrderStatusService {
     }
     return allowedTransitions.includes(newStatus);
   }
-
+ 
   /**
    * Update order status with validation
    */
@@ -281,28 +282,28 @@ class OrderStatusService {
     let transaction;
     try {
       console.log(`🔄 updateOrderStatus called: orderId=${orderId}, newStatus=${newStatus}, dpId=${dpId}`);
-
+ 
       transaction = await sequelize.transaction();
-
+ 
       // Get current order
       const order = await _orders.findOne({
         where: { ORID: orderId },
         transaction
       });
-
+ 
       if (!order) {
         throw new Error('Order not found');
       }
-
+ 
       const currentStatus = order.ORST;
-
+ 
       // Trim any whitespace from status
       const trimmedCurrentStatus = currentStatus ? currentStatus.trim() : '';
-
+ 
       console.log(`📊 Current order status: "${currentStatus}" (trimmed: "${trimmedCurrentStatus}")`);
       console.log(`📊 Attempting transition: "${trimmedCurrentStatus}" → "${newStatus}"`);
       console.log(`📊 All VALID_TRANSITIONS keys:`, Object.keys(VALID_TRANSITIONS));
-
+ 
       // Validate transition - use trimmed status
       if (!this.isValidTransition(trimmedCurrentStatus, newStatus)) {
         console.error(`❌ Invalid transition from "${trimmedCurrentStatus}" to "${newStatus}"`);
@@ -312,15 +313,15 @@ class OrderStatusService {
           `Invalid status transition from "${currentStatus}" to "${newStatus}"`
         );
       }
-
+ 
       // Update order status
       const updateData = { ORST: newStatus };
       if (dpId) {
         updateData.DPID = dpId;
       }
-
+ 
       console.log(`💾 Updating order with data:`, updateData);
-
+ 
       const [updatedRows] = await _orders.update(
         updateData,
         {
@@ -328,11 +329,11 @@ class OrderStatusService {
           transaction
         }
       );
-
+ 
       if (updatedRows === 0) {
         throw new Error('Failed to update order status');
       }
-
+ 
       // ──────────────────────────────────────────────────
       // Update OTSD / OTDD on the correct trip(s)
       // Logic:
@@ -341,16 +342,16 @@ class OrderStatusService {
       //   • "Order Delivered N"  → set OTDD on Trip N, and set OTSD on Trip N+1 (next trip starts when this one delivers)
       //   • "Order Delivered"    → set OTDD on the last trip, and update ORDD on the Orders table
       // ──────────────────────────────────────────────────
-
+ 
       // Fetch all trips for this order (ordered by creation sequence)
       const orderTrips = await _order_trips.findAll({
         where: { ORID: orderId },
         order: [['OTID', 'ASC']],
         transaction
       });
-
+ 
       const now = new Date();
-
+ 
       if (orderTrips && orderTrips.length > 0) {
         // --- TRIP STARTED events ---
         if (newStatus === ORDER_STATUS.TRIP_STARTED) {
@@ -389,7 +390,7 @@ class OrderStatusService {
             }
           }
         }
-
+ 
         // --- ORDER DELIVERED and other delivery-like events ---
         const otherDeliveryStatuses = [
           ORDER_STATUS.DELIVERY_SUCCESSFUL,
@@ -397,13 +398,13 @@ class OrderStatusService {
           ORDER_STATUS.TO_SECURITY,
           ORDER_STATUS.TO_NEIGHBOUR
         ];
-        
+ 
         const deliveredMatch = newStatus.match(/^Order Delivered (\d+)$/);
-
+ 
         if (newStatus === ORDER_STATUS.ORDER_DELIVERED || deliveredMatch || otherDeliveryStatuses.includes(newStatus)) {
           let tripIdx;
           let statusLabel = newStatus;
-
+ 
           if (newStatus === ORDER_STATUS.ORDER_DELIVERED) {
             // Final delivery → set OTDD on the last trip
             tripIdx = orderTrips.length - 1;
@@ -419,17 +420,17 @@ class OrderStatusService {
             tripIdx = activeTripIdx !== -1 ? activeTripIdx : (orderTrips.length - 1);
             statusLabel = `${newStatus} ${tripIdx + 1}`;
           }
-
+ 
           if (tripIdx >= 0 && tripIdx < orderTrips.length) {
             const currentTrip = orderTrips[tripIdx];
             const tripNum = tripIdx + 1;
-
+ 
             await _order_trips.update(
               { OTDD: now, OTST: statusLabel },
               { where: { OTID: currentTrip.OTID }, transaction }
             );
             console.log(`✅ OTDD and OTST set for Trip ${tripNum} (${statusLabel}) at ${now.toISOString()}`);
-
+ 
             // Also set OTSD on the next trip (Trip N+1) if it exists
             const nextTripIdx = tripIdx + 1;
             if (nextTripIdx < orderTrips.length) {
@@ -443,7 +444,7 @@ class OrderStatusService {
                 console.log(`🕒 OTSD and OTST set for Trip ${nextTripIdx + 1} (OTID: ${nextTrip.OTID}) — started by ${statusLabel}`);
               }
             }
-
+ 
             // If this was the last trip or final delivery status, update ORDD on the Orders table
             if (tripIdx === orderTrips.length - 1 || newStatus === ORDER_STATUS.ORDER_DELIVERED) {
               await _orders.update(
@@ -455,33 +456,57 @@ class OrderStatusService {
           }
         }
       }
-
+ 
       // ──────────────────────────────────────────────────
-
+ 
       await transaction.commit();
-
+ 
       console.log(`✅ Order ${orderId} status updated: ${currentStatus} → ${newStatus}`);
-
+ 
       // If order is fully delivered, closed, or cancelled, free up the DP for new orders
-      const finalStatuses = [ORDER_STATUS.ORDER_DELIVERED, ORDER_STATUS.ORDER_CLOSED, ORDER_STATUS.ORDER_CANCELLED];
-      if (finalStatuses.includes(newStatus) && (dpId || order.DPID)) {
+      const finalStatuses = [
+        ORDER_STATUS.ORDER_DELIVERED,
+        ORDER_STATUS.ORDER_CLOSED,
+        ORDER_STATUS.ORDER_CANCELLED,
+        ORDER_STATUS.DELIVERY_SUCCESSFUL,
+        ORDER_STATUS.PICKUP_CANCELLED,
+        ORDER_STATUS.TRIP_CANCELLED,
+        ORDER_STATUS.ORDER_DELIVERY_FAILED
+      ];
+ 
+      const statusToCompare = (newStatus || '').trim();
+      console.log(`🏁 Checking if status '${statusToCompare}' is in [${finalStatuses.join(', ')}] to clear DPLocation...`);
+ 
+      if (finalStatuses.includes(statusToCompare) && (dpId || order.DPID)) {
         try {
+          console.log(`🧹 Clearing DPLocation for order ${orderId} (Status: ${newStatus})...`);
           const { _delivery_partner_location } = models;
-          await _delivery_partner_location.update(
-            { DPOID: null, DPTID: null },
-            { where: { DPID: dpId || order.DPID } }
-          );
-          console.log(`📍 DPLocation cleared: DPOID=null, DPTID=null for DPID=${dpId || order.DPID}`);
+          if (_delivery_partner_location) {
+            const affectedRows = await _delivery_partner_location.update(
+              { DPOID: null, DPTID: null },
+              {
+                where: {
+                  [Op.or]: [
+                    { DPID: dpId || order.DPID },
+                    { DPOID: orderId }
+                  ]
+                }
+              }
+            );
+            console.log(`📍 DPLocation cleared: ${affectedRows} rows updated. DPOID=null, DPTID=null for order: ${orderId}`);
+          } else {
+            console.warn('⚠️ _delivery_partner_location model missing in models during cleanup');
+          }
         } catch (locError) {
           console.error('⚠️ Failed to clear DPLocation on delivery/cancellation:', locError.message);
         }
       }
-
+ 
       // Notify customer about status change (fire and forget)
       this.notifyCustomerStatusUpdate(orderId, newStatus, dpId).catch(err => {
         console.error('Failed to notify customer:', err);
       });
-
+ 
       return {
         success: true,
         orderId,
@@ -489,14 +514,14 @@ class OrderStatusService {
         newStatus,
         timestamp: new Date()
       };
-
+ 
     } catch (error) {
       if (transaction) await transaction.rollback();
       console.error('❌ Error updating order status:', error);
       throw error;
     }
   }
-
+ 
   /**
    * Get current order status
    */
@@ -506,11 +531,11 @@ class OrderStatusService {
         where: { ORID: orderId },
         attributes: ['ORID', 'ORST', 'DPID', 'ORDT']
       });
-
+ 
       if (!order) {
         throw new Error('Order not found');
       }
-
+ 
       return {
         orderId: order.ORID,
         status: order.ORST,
@@ -522,7 +547,7 @@ class OrderStatusService {
       throw error;
     }
   }
-
+ 
   /**
    * Get allowed next statuses for current order status
    */
@@ -531,14 +556,14 @@ class OrderStatusService {
       const order = await _orders.findOne({
         where: { ORID: orderId }
       });
-
+ 
       if (!order) {
         throw new Error('Order not found');
       }
-
+ 
       const currentStatus = order.ORST;
       const allowedTransitions = VALID_TRANSITIONS[currentStatus] || [];
-
+ 
       return {
         orderId,
         currentStatus,
@@ -550,5 +575,7 @@ class OrderStatusService {
     }
   }
 }
-
+ 
 export default OrderStatusService;
+ 
+ 
