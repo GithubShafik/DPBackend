@@ -26,8 +26,6 @@ class DPServices {
         const newLocation = await _delivery_partner_location.create(
           {
             DPID,
-            DPOID,
-            DPTID,
             DPSTA,
             DPCLL,
             DPCDT: new Date(),
@@ -49,16 +47,7 @@ class DPServices {
           DPCDT: new Date(),
           DPCSP,
         };
- 
-        // Only update DPOID/DPTID if explicitly provided and non-empty
-        // This prevents periodic location updates from clearing an active order assignment
-        if (DPOID !== undefined && DPOID !== null && DPOID !== '') {
-          updateData.DPOID = DPOID;
-        }
-        if (DPTID !== undefined && DPTID !== null && DPTID !== '') {
-          updateData.DPTID = DPTID;
-        }
- 
+
         await _delivery_partner_location.update(
           updateData,
           {
@@ -68,10 +57,28 @@ class DPServices {
         );
  
         await t.commit();
- 
-        return await _delivery_partner_location.findOne({
+
+        const updatedLocation = await _delivery_partner_location.findOne({
           where: { DPID },
         });
+
+        // Forward live location to Customer Backend if attached to an order
+        if (updatedLocation && updatedLocation.DPOID) {
+          try {
+            const customerBackendUrl = process.env.CUSTOMER_BACKEND_URL || "http://localhost:5000";
+            const [lat, lng] = DPCLL.split(",");
+            const axios = await import("axios");
+            axios.default.post(`${customerBackendUrl}/api/internal/customer/notify-location`, {
+               orderId: updatedLocation.DPOID,
+               latitude: parseFloat(lat),
+               longitude: parseFloat(lng)
+            }).catch(e => console.error("[Location Forward] ❌ error:", e.message));
+          } catch(err) {
+            console.error("[Location Forward] ❌ exception:", err.message);
+          }
+        }
+
+        return updatedLocation;
       }
     } catch (error) {
       if (t) await t.rollback();
