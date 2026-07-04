@@ -6,6 +6,7 @@ import {
 } from "../utils/GenerateToken.js";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
+import { QueryTypes } from "sequelize";
 
 dotenv.config();
 
@@ -21,12 +22,62 @@ class UserServices {
      SEND OTP
   ========================= */
 
-static async handlePhoneLogin(req) {
-  try {
-    const { country_code, contact } = req.body;
+  static async _processBankDetails(DPID, DPSPIN, t) {
+    if (!DPSPIN) return;
+    try {
+      const spinData = typeof DPSPIN === "string" ? JSON.parse(DPSPIN) : DPSPIN;
+      if (spinData.bankName && spinData.bankAccountNumber && spinData.bankIfscCode) {
+        const banks = await sequelize.query('SELECT BID FROM Banks WHERE BN = ? LIMIT 1', {
+          replacements: [spinData.bankName],
+          type: QueryTypes.SELECT
+        });
+        const bid = banks.length > 0 ? banks[0].BID : null;
+        
+        const accountData = {
+          DPID,
+          BID: bid,
+          AHN: spinData.bankAccountName,
+          IFSCCode: spinData.bankIfscCode,
+          ACNO: spinData.bankAccountNumber,
+          CACNO: spinData.bankAccountNumber,
+          DPBAStat: 1,
+          DPBAUAt: new Date()
+        };
 
-    const fullPhone = `${country_code}${contact}`;
-    const randomOtp = HARDCODED_OTP;
+        const existingAccount = await models._delivery_partner_bank_accounts.findOne({
+          where: { DPID },
+          transaction: t
+        });
+
+        if (existingAccount) {
+          await models._delivery_partner_bank_accounts.update(accountData, {
+            where: { DPID },
+            transaction: t
+          });
+        } else {
+          const DPBAID = `DPBA${Date.now().toString().slice(-6)}`;
+          await models._delivery_partner_bank_accounts.create({
+            DPBAID,
+            DPBACAt: new Date(),
+            ...accountData
+          }, { transaction: t });
+        }
+      }
+    } catch (e) {
+      console.error("Failed to process bank details:", e);
+    }
+  }
+
+  /* =========================
+     SEND OTP
+  ========================= */
+
+  static async handlePhoneLogin(req) {
+    try {
+      const { country_code, contact } = req.body;
+
+      const fullPhone = `${country_code}${contact}`;
+      const randomOtp = HARDCODED_OTP;
 
       const response = await axios.get(
         `https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${fullPhone}/${randomOtp}/PaddalDrop%20OTP%20Template-2`
@@ -37,15 +88,15 @@ static async handlePhoneLogin(req) {
         throw new Error("Failed to send OTP");
       }
 
-   // ✅ Consistent key
-   otpStore.set(fullPhone, {
-     code: randomOtp,
-     createdAt: new Date(),
-   });
+      // ✅ Consistent key
+      otpStore.set(fullPhone, {
+        code: randomOtp,
+        createdAt: new Date(),
+      });
 
-    return {
-      message: "OTP sent successfully",
-    };
+      return {
+        message: "OTP sent successfully",
+      };
 
     } catch (error) {
       console.log("OTP ERROR:", error.response?.data || error.message);
@@ -224,6 +275,11 @@ static async handlePhoneLogin(req) {
         );
       }
 
+      // Process Bank Details into the separate table
+      if (req.body.DPSPIN) {
+        await UserServices._processBankDetails(DPID, req.body.DPSPIN, t);
+      }
+
       await t.commit();
 
       const updatedPartner = await _delivery_partner.findOne({
@@ -267,6 +323,11 @@ static async handlePhoneLogin(req) {
         where: { DPID },
         transaction: t,
       });
+
+      // Process Bank Details into the separate table
+      if (req.body.DPSPIN) {
+        await UserServices._processBankDetails(DPID, req.body.DPSPIN, t);
+      }
 
       await t.commit();
 

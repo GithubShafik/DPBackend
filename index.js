@@ -9,7 +9,7 @@ import errorHandler from './utils/ErrorHandler/errorhandler.js';
 import { connectDB } from "./config/MySqldbconfig.js";
 // import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 // import { Strategy as FacebookStrategy } from "passport-facebook";
-import swaggerJsDoc  from "swagger-jsdoc";
+import swaggerJsDoc from "swagger-jsdoc";
 import swaggerUi from "swagger-ui-express";
 import passport from "passport";
 import { createServer } from "http";
@@ -20,16 +20,16 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: "*",
-    methods: ["GET","POST","PUT","DELETE","PATCH"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   }
 });
- 
+
 // Socket.IO logic
 const notifiedOrders = new Map(); // Track notified orders: { orderId: Set([dpId1, dpId2]) }
- 
+
 io.on("connection", (socket) => {
   console.log("🔌 A user connected:", socket.id);
- 
+
   socket.on("join", (data) => {
     const { role, partnerId } = data;
     if (role === 'partner' && partnerId) {
@@ -37,42 +37,42 @@ io.on("connection", (socket) => {
       console.log(`✅ Partner joined: ID ${partnerId}, Socket ${socket.id}`);
     }
   });
- 
+
   socket.on("disconnect", () => {
     console.log("🔌 User disconnected:", socket.id);
   });
- 
+
   // Handle Order Acceptance from Partner App
   socket.on("dp_accepted_order", async (data) => {
     console.log(`[Socket] 🤝 Partner accepted order: ${data.orderId} for customer: ${data.customerId}`);
     console.log(`[Socket] 📦 Full payload received:`, JSON.stringify(data, null, 2));
-   
+
     try {
       // Validate required fields
       if (!data.orderId || !data.customerId) {
         console.error(`[Socket] ❌ Missing required fields: orderId=${data.orderId}, customerId=${data.customerId}`);
         return;
       }
- 
+
       // Notify Customer Backend (Port 5000)
       // In local dev, we use localhost or the specified IP
       const customerBackendUrl = process.env.CUSTOMER_BACKEND_URL || "http://localhost:5000";
- 
+
       console.log(`[Internal Bridge] 🌉 Forwarding acceptance to ${customerBackendUrl}...`);
       console.log(`[Internal Bridge] 📤 Payload being sent:`, JSON.stringify(data, null, 2));
- 
+
       const response = await axios.post(`${customerBackendUrl}/api/internal/customer/notify-accepted`, data);
- 
+
       console.log(`[Internal Bridge] ✅ Customer Backend response:`, response.data);
- 
+
     } catch (error) {
       console.error(`[Internal Bridge] ❌ Failed to forward acceptance:`, error.response?.data || error.message);
       console.error(`[Internal Bridge] 🔍 Error details:`, error);
     }
   });
 });
- 
- 
+
+
 // import { createBullBoard } from "@bull-board/api";
 // import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
 import { ExpressAdapter } from "@bull-board/express";
@@ -83,12 +83,12 @@ import { ExpressAdapter } from "@bull-board/express";
 // import { sendWebNotificationQueue } from "./communication/queues/sendWebNotification.js";
 // import {IndexListingQueue} from "./communication/queues/indexListingQueue.js";
 // import {IndexDeletingQueue} from "./communication/queues/indexDeletingQueue.js"
- 
+
 // Ensure port is a number
 const port = parseInt(process.env.PORT, 10) || 8001;
 console.log("PORT variable:", process.env.PORT);
 console.log("Starting server on port:", port);
- 
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -99,28 +99,28 @@ app.use(
     extended: true,
   })
 );
- 
+
 const serverAdapter = new ExpressAdapter();
- 
+
 // --- Internal API Bridge for Cross-Backend Communication ---
 app.post("/api/internal/notify-partners", (req, res) => {
   const { partnerIds, eventData } = req.body;
- 
+
   if (!partnerIds || !Array.isArray(partnerIds) || !eventData) {
     return res.status(400).json({ success: false, error: "Invalid payload: missing partnerIds or eventData" });
   }
- 
+
   let notifiedCount = 0;
   partnerIds.forEach(id => {
     const roomName = `partner_${id}`;
- 
+
     // Check if this partner has already been notified for this order
     if (!notifiedOrders.has(eventData.orderId)) {
       notifiedOrders.set(eventData.orderId, new Set());
     }
- 
+
     const notifiedSet = notifiedOrders.get(eventData.orderId);
- 
+
     if (!notifiedSet.has(id)) {
       // Only send if not already notified
       io.to(roomName).emit("new_order", eventData);
@@ -131,52 +131,51 @@ app.post("/api/internal/notify-partners", (req, res) => {
       console.log(`[Internal API] ⏭️ Partner ${id} already notified for order ${eventData.orderId}`);
     }
   });
- 
+
   // Clean up old orders after 1 hour to prevent memory leak
   setTimeout(() => {
     notifiedOrders.delete(eventData.orderId);
   }, 3600000);
- 
+
   res.status(200).json({
     success: true,
     message: `Successfully emitted events to ${notifiedCount} partners`
   });
 });
- 
+
 app.post("/api/internal/order-cancelled", async (req, res) => {
   const { orderId, partnerId, reason } = req.body;
- 
-  if (!orderId || !partnerId) {
-    return res.status(400).json({ success: false, error: "Missing orderId or partnerId" });
+
+  if (!orderId) {
+    return res.status(400).json({ success: false, error: "Missing orderId" });
   }
- 
+
   try {
-    console.log(`[Internal Bridge] 🚫 Received order cancellation for ${orderId}, Partner: ${partnerId}`);
- 
-    const roomName = `partner_${partnerId}`;
-    io.to(roomName).emit("order_cancelled", { orderId, reason });
-    console.log(`[Internal API] 🔔 Emitted 'order_cancelled' to room: ${roomName}`);
- 
+    console.log(`[Internal Bridge] 🚫 Received order cancellation for ${orderId}, Partner: ${partnerId || 'None assigned'}`);
+
+    if (partnerId) {
+      const roomName = `partner_${partnerId}`;
+      io.to(roomName).emit("order_cancelled", { orderId, reason });
+      console.log(`[Internal API] 🔔 Emitted 'order_cancelled' to room: ${roomName}`);
+    }
+
     const dbModule = await import("./config/database.js");
     const db = dbModule.default;
     const { _delivery_partner_location } = db.models;
- 
+
     if (_delivery_partner_location) {
-      // Clear location for this partner, or whichever partner has this order ID assigned
-      await _delivery_partner_location.update(
+      // Clear location for this order, or specifically for the partner if provided
+      const whereClause = partnerId
+        ? { [Op.or]: [{ DPID: partnerId }, { DPOID: orderId }] }
+        : { DPOID: orderId };
+
+      const [affectedRows] = await _delivery_partner_location.update(
         { DPOID: null, DPTID: null },
-        {
-          where: {
-            [Op.or]: [
-              { DPID: partnerId },
-              { DPOID: orderId }
-            ]
-          }
-        }
+        { where: whereClause }
       );
-      console.log(`📍 DPLocation cleared: DPOID=null, DPTID=null for order ${orderId} (Partner: ${partnerId})`);
+      console.log(`📍 DPLocation cleared: DPOID=null, DPTID=null for order ${orderId}. Affected rows: ${affectedRows}`);
     }
- 
+
     res.status(200).json({ success: true, message: "Order cancellation processed" });
   } catch (error) {
     console.error("[Internal Bridge] ❌ Error processing order cancellation:", error);
@@ -185,7 +184,7 @@ app.post("/api/internal/order-cancelled", async (req, res) => {
 });
 // -----------------------------------------------------------
 serverAdapter.setBasePath("/admin/queues");
- 
+
 // createBullBoard({
 //   queues: [new BullMQAdapter(sendEmailQueue),
 //     new BullMQAdapter(sendSmsQueue),
@@ -196,23 +195,23 @@ serverAdapter.setBasePath("/admin/queues");
 //   new BullMQAdapter(IndexDeletingQueue)],
 //   serverAdapter,
 // });
- 
+
 // app.use("/admin/queues", serverAdapter.getRouter());
- 
- 
+
+
 // Swagger Options
 const swaggerOptions = {
   definition: {
     openapi: "3.0.0",
     info: {
-      title: "Yardat API",
+      title: "Peddaldrop-Delivery-Partner API",
       version: "1.0.0",
-      description: "API documentation for Yardat using Swagger",
+      description: "API documentation for Peddaldrop-Delivery-Partner using Swagger",
     },
     servers: [
       { url: process.env.BACKEND_URL }
     ],
- 
+
     components: {
       securitySchemes: {
         BearerAuth: {
@@ -222,7 +221,7 @@ const swaggerOptions = {
         },
       },
     },
- 
+
     security: [
       {
         BearerAuth: [],
@@ -231,7 +230,7 @@ const swaggerOptions = {
   },
   apis: ["./routes/*.js"],
 };
- 
+
 // Initialize Swagger
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
 // app.use("/swagger", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
@@ -255,14 +254,14 @@ app.get("/swagger", (req, res) => {
     </html>
   `);
 });
- 
+
 app.get("/swagger.json", (req, res) => {
   res.json(swaggerDocs);
 });
- 
- 
+
+
 app.use(passport.initialize());
- 
+
 // passport.use(
 //   new GoogleStrategy(
 //     {
@@ -283,7 +282,7 @@ app.use(passport.initialize());
 //     }
 //   )
 // );
- 
+
 // passport.use(
 //   new FacebookStrategy(
 //     {
@@ -304,32 +303,32 @@ app.use(passport.initialize());
 //     }
 //   )
 // );
- 
+
 // App routes
 app.use(setRoutes());
- 
+
 // Status endpoints
 app.get("/", (req, res) => res.send("Auth working"));
 app.get("/health", (req, res) => res.status(200).json({ status: "ok" }));
- 
+
 // Remove sensitive headers
 app.use((req, res, next) => {
   res.removeHeader("x-powered-by");
   res.removeHeader("server");
   next();
 });
- 
+
 // Error handler
 app.use(errorHandler);
- 
+
 // Connect to database
 connectDB();
- 
+
 // Start server on all interfaces (0.0.0.0) for Docker
 // httpServer.listen(port, '0.0.0.0', () => {
 //   console.log(`Auth Server with Socket.IO listening at http://localhost:${port}`);
 // });
- 
+
 httpServer.listen(port, '0.0.0.0', () => {
   if (process.env.NODE_ENV === "production") {
     console.log(`🚀 Server running on port ${port}`);
@@ -338,4 +337,3 @@ httpServer.listen(port, '0.0.0.0', () => {
   }
 });
 export default app;
- 

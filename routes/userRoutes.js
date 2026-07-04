@@ -432,4 +432,6 @@ router.post("/register", UserController.RegisterPartner);
  */
 router.get("/tnc", UserController.getTermsAndConditions);
 
+router.get("/banks", UserController.getBanks);
+
 export default router;

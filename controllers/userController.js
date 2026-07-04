@@ -321,6 +321,26 @@ class UserController {
     });
   }
 };
+
+  static getBanks = async (req, res) => {
+    try {
+      const response = await DPServices.handleGetBanks(req);
+      return sendResult({
+        resCode: 200,
+        res,
+        result: response,
+        message: "Banks fetched successfully",
+      });
+    } catch (error) {
+      console.error("❌ getBanks Error:", error);
+      return sendError({
+        errorCode: 500,
+        res,
+        error: error?.message,
+        message: "Failed to fetch Banks",
+      });
+    }
+  };
 }
 
 export default UserController;
