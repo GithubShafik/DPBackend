@@ -80,7 +80,7 @@ class UserServices {
       const randomOtp = HARDCODED_OTP;
 
       const response = await axios.get(
-        `https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${fullPhone}/${randomOtp}/PaddalDrop%20OTP%20Template-2`
+        `https://2factor.in/API/V1/${process.env.TWO_FACTOR_API_KEY}/SMS/${fullPhone}/${randomOtp}/OTP_Verification_Login`
       );
 
       // ✅ Correct validation

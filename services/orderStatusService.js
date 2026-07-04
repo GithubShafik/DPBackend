@@ -162,6 +162,25 @@ class OrderStatusService {
   // Make ORDER_STATUS accessible as static property
   static ORDER_STATUS = ORDER_STATUS;
 
+  static async sendTransactionalSMS(phone, templateName, variables) {
+    try {
+      if (!phone || !templateName) return;
+      let url = `https://2factor.in/API/R1/?module=TRANS_SMS&apikey=${process.env.TWO_FACTOR_API_KEY}&to=${phone}&from=PEDDAL&templatename=${templateName}`;
+      
+      // Append variables var1, var2, etc.
+      Object.keys(variables).forEach((key, index) => {
+        url += `&var${index + 1}=${encodeURIComponent(variables[key])}`;
+      });
+
+      console.log(`[SMS] Sending ${templateName} to ${phone}`);
+      const response = await axios.get(url);
+      console.log(`[SMS] Response:`, response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`[SMS] Failed to send ${templateName}:`, error.message);
+    }
+  }
+
   /**
    * Notify customer backend about order status update
    */
@@ -508,6 +527,37 @@ class OrderStatusService {
       this.notifyCustomerStatusUpdate(orderId, newStatus, dpId).catch(err => {
         console.error('Failed to notify customer:', err);
       });
+
+      // Send transactional SMS if applicable
+      try {
+        if (newStatus === ORDER_STATUS.ORDER_DELIVERY_FAILED || newStatus === ORDER_STATUS.ORDER_DELIVERED || newStatus === ORDER_STATUS.DELIVERY_SUCCESSFUL) {
+          const customerId = order.CID || order.ORCD;
+          if (customerId) {
+            const { _customers } = models;
+            const customerData = await _customers.findOne({ where: { CID: customerId } });
+            if (customerData && customerData.CDN) {
+              const phone = customerData.CDN;
+              if (newStatus === ORDER_STATUS.ORDER_DELIVERY_FAILED) {
+                // Template: Order_Delivery_Fail1 (var1, var2, var3, var4)
+                this.sendTransactionalSMS(phone, 'Order_Delivery_Fail1', {
+                  var1: orderId,
+                  var2: 'Delivery',
+                  var3: 'Partner',
+                  var4: 'Support'
+                });
+              } else if (newStatus === ORDER_STATUS.ORDER_DELIVERED || newStatus === ORDER_STATUS.DELIVERY_SUCCESSFUL) {
+                // Template: Order_Confirmation_Delivery1 (var1, var2)
+                this.sendTransactionalSMS(phone, 'Order_Confirmation_Delivery1', {
+                  var1: customerData.CNM || 'Customer',
+                  var2: orderId
+                });
+              }
+            }
+          }
+        }
+      } catch (smsError) {
+        console.error('Failed to trigger transactional SMS:', smsError.message);
+      }
 
       return {
         success: true,
